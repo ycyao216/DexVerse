@@ -1,0 +1,40 @@
+# Copyright (c) 2025-2026, The DexVerse Project Developers.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+retargeting:
+  finger_tip_link_names:
+  - thtip
+  - fftip
+  - mftip
+  - rftip
+  - lftip
+  low_pass_alpha: 0.1
+  scaling_factor: 1.0
+  target_joint_names:
+  - FFJ1
+  - FFJ2
+  - FFJ3
+  - FFJ4
+  - MFJ1
+  - MFJ2
+  - MFJ3
+  - MFJ4
+  - RFJ1
+  - RFJ2
+  - RFJ3
+  - RFJ4
+  - LFJ1
+  - LFJ2
+  - LFJ3
+  - LFJ4
+  - LFJ5
+  - THJ1
+  - THJ2
+  - THJ3
+  - THJ4
+  - THJ5
+  type: DexPilot
+  urdf_path: /workspace/dexverse/source/dexverse/dexverse/robot_urdfs/shadow_hand_right_woarm.urdf
+  wrist_link_name: palm

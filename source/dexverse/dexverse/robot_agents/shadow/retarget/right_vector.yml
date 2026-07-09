@@ -1,0 +1,55 @@
+# Copyright (c) 2025-2026, The DexVerse Project Developers.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+retargeting:
+  # Vector retargeting: matches palm->fingertip vectors instead of the
+  # tip-to-tip + wrist-to-tip pinch vectors used by DexPilot. See
+  # right_dexpilot.yml for the equivalent DexPilot config.
+  type: vector
+  urdf_path: floating_shadow_right.urdf
+  # Robot-side vectors: origin (palm) -> task (each fingertip).
+  target_origin_link_names:
+  - palm
+  - palm
+  - palm
+  - palm
+  - palm
+  target_task_link_names:
+  - thtip
+  - fftip
+  - mftip
+  - rftip
+  - lftip
+  # Human-side vectors, indexed into the 21-keypoint canonical hand array built
+  # by SimpleRelativeRetargeter (wrist=0; thumb 1-4; index 5-8; middle 9-12;
+  # ring 13-16; little 17-20). Row 0 = origin (wrist), row 1 = task (fingertip).
+  target_link_human_indices:
+  - [0, 0, 0, 0, 0]
+  - [4, 8, 12, 16, 20]
+  target_joint_names:
+  - FFJ1
+  - FFJ2
+  - FFJ3
+  - FFJ4
+  - MFJ1
+  - MFJ2
+  - MFJ3
+  - MFJ4
+  - RFJ1
+  - RFJ2
+  - RFJ3
+  - RFJ4
+  - LFJ1
+  - LFJ2
+  - LFJ3
+  - LFJ4
+  - LFJ5
+  - THJ1
+  - THJ2
+  - THJ3
+  - THJ4
+  - THJ5
+  low_pass_alpha: 0.8
+  scaling_factor: 1.125

@@ -1,0 +1,113 @@
+# C++
+**/cmake-build*/
+**/build*/
+**/*.so
+**/*.log*
+
+# Omniverse
+**/*.dmp
+**/.thumbs
+
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
+
+# Python
+.DS_Store
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.pb
+
+# Docker/Singularity
+**/*.sif
+docker/cluster/exports/
+docker/.container.cfg
+
+# IDE
+**/.idea/
+**/.vscode/
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/wandb/*
+**/.neptune/*
+docker/artifacts/
+*.tmp
+
+# Doc Outputs
+**/docs/_build/*
+**/generated/*
+
+# Isaac-Sim packman
+_isaac_sim*
+_repo
+_build
+.lastformat
+
+# RL-Games
+**/runs/*
+**/logs/*
+**/recordings/*
+
+# Pre-Trained Checkpoints
+/.pretrained_checkpoints/
+
+# Teleop Recorded Dataset
+/datasets/
+
+# Tests
+tests/
+
+# Docker history
+.isaac-lab-docker-history
+
+# Local OpenXR runtime files
+/openxr/
+/source/dexbench/dexbench/tasks/config/rigid/texas_poker/
+/supplementary/*
+/scripts/capture_scripts/*
+
+# Asset binaries are hosted on Hugging Face (dexverse/DexVerse_Dataset) and
+# fetched via scripts/asset_tools/download_assets.py. Keep only the package's
+# path-constants module (assets/__init__.py) in git.
+/source/dexverse/dexverse/assets/*
+!/source/dexverse/dexverse/assets/__init__.py
+
+# robot_agents binary assets (USD/URDF/meshes) are hosted on Hugging Face and
+# fetched via scripts/asset_tools/download_robot_agents.py. Small text sources
+# (Python + yaml configs) stay tracked in git. Same split for the staged
+# non-shadow hands under source_unreleased/.
+/source/dexverse/dexverse/robot_agents/**
+!/source/dexverse/dexverse/robot_agents/**/
+!/source/dexverse/dexverse/robot_agents/**/*.py
+!/source/dexverse/dexverse/robot_agents/**/*.yml
+!/source/dexverse/dexverse/robot_agents/**/*.yaml
+/source_unreleased/robot_agents/**
+!/source_unreleased/robot_agents/**/
+!/source_unreleased/robot_agents/**/*.py
+!/source_unreleased/robot_agents/**/*.yml
+!/source_unreleased/robot_agents/**/*.yaml
+!/source_unreleased/robot_agents/README.md
+
+# Demonstration recordings are hosted on Hugging Face (demonstrations/ prefix)
+# and fetched via scripts/demo_tools/download_demos.py. Keep only docs (*.md)
+# and the baseline manifest (read by download_demos.py / upload_demos.py).
+/source/dexverse/demonstrations/**
+!/source/dexverse/demonstrations/**/
+!/source/dexverse/demonstrations/**/*.md
+!/source/dexverse/demonstrations/baseline_manifest.txt
+
+# Legacy/orphaned demo data (superseded by demonstrations/, hosted on HF).
+/demos/
+
+# Built HF asset bundles (output of scripts/asset_tools/archived/zip_for_hf.py).
+/dist/
+
+AGENTS.md
+env.sh

@@ -1,0 +1,4 @@
+# Large binary assets are NOT stored in git/LFS — they live on the Hugging Face
+# dataset repo (dexverse/DexVerse_Dataset) and are fetched via the helper
+# scripts under scripts/asset_tools/ and scripts/demo_tools/.
+*.bat text eol=crlf

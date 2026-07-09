@@ -1,0 +1,24 @@
+# Copyright (c) 2025-2026, The DexVerse Project Developers.
+# All rights reserved.
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Docker Compose patch that bind-mounts the DexVerse repository into the
+# Isaac Lab container at /workspace/dexverse. Pass it to Isaac Lab's
+# docker/container.py via --files (alongside Isaac Lab's own patch files)
+# instead of copying or editing Isaac Lab's docker-compose.yaml.
+#
+# Relative paths below are resolved against IsaacLab/docker (the directory
+# of the base docker-compose.yaml), so the defaults assume DexVerse is
+# cloned next to Isaac Lab. If it lives elsewhere, export
+# DEXVERSE_PATH=/abs/path/to/DexVerse before running container.py.
+
+services:
+  isaac-lab-base:
+    volumes:
+      - type: bind
+        source: ${DEXVERSE_PATH:-../../DexVerse}/source/dexverse
+        target: /workspace/dexverse/source/dexverse
+      - type: bind
+        source: ${DEXVERSE_PATH:-../../DexVerse}/scripts
+        target: /workspace/dexverse/scripts
