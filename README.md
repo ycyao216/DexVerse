@@ -21,10 +21,11 @@
 
 ## Release Roadmap
 
-- [x] Initial release: task suite, assets, teleoperation, and data-collection tooling
+- [x] Initial release: task suite, assets
+- [ ] Release full teleoperation and data-collection tooling and corresponding documentations
 - [ ] Baseline environment demonstrations and baseline code
 - [ ] Full shadowhand demonstration dataset
-- [ ] Cross-embodiment support, instructions, and demonstrations
+- [ ] Cross-embodiment robot assets, instructions, and demonstrations
 
 ---
 
@@ -95,10 +96,9 @@ pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvid
 # which would otherwise uninstall torchaudio without restoring it.
 pip install -U torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 
-# FIX: pre-pin stable-baselines3. Isaac Lab v2.3.2 declares `stable-baselines3>=2.6` with
-# no upper bound, and sb3 >= 2.9 requires torch >= 2.8 — letting the Isaac Lab installer
-# resolve it would silently replace the torch 2.7.0 that Isaac Sim 5.1 requires.
-pip install "stable-baselines3<2.9"
+# Temporary fix to counter isaaclab v2.3.2 installation dependency breaks. Inspired by https://github.com/isaac-sim/IsaacLab/issues/4576 
+pip install "setuptools==65.0.0"
+pip install "flatdict==4.0.1" --no-build-isolation
 
 # Install Isaac Lab v2.3.2
 git clone https://github.com/isaac-sim/IsaacLab.git --branch v2.3.2
@@ -107,15 +107,7 @@ sudo apt install cmake build-essential   # Linux system dependencies
 ./isaaclab.sh --install
 ```
 
-> **Note**: during `./isaaclab.sh --install`, pip may still print dependency-resolver warnings
-> about `click`, `psutil` and `typing_extensions` not matching Isaac Sim's exact pins. These are
-> harmless and can be ignored. Warnings about `torch`, `torchvision` or `torchaudio` are **not**
-> expected — if you see them, one of the `FIX` steps above was likely skipped. You can verify the
-> final state with:
->
-> ```bash
-> python -c "import torch, torchvision, torchaudio; print(torch.__version__)"  # → 2.7.0+cu128
-> ```
+> **Note**: during `./isaaclab.sh --install`, pip may still print dependency-resolver warnings. We will continue to monitor the effect of these conflicts.
 
 ### Install the DexVerse package
 
@@ -130,7 +122,7 @@ This is all the core benchmark needs. The environments, teleoperation, demo reco
 ### Optional: extras for the demo inspection tools
 
 A few offline utilities under `scripts/demo_tools/` use packages that are *not* part of Isaac
-Lab's official environment. Install them only if you use these tools:
+Lab's official environment. Install them if you use these tools:
 
 ```bash
 # opencv-python is capped and numpy is constrained on purpose: opencv-python >= 4.12
@@ -147,7 +139,8 @@ and must be downloaded before any environment can run. Log in once and accept th
 
 ```bash
 pip install huggingface_hub
-huggingface-cli login   # required once; the dataset is gated
+hf auth login   # and follow the prompt to login to hugging face
+# alternatively, you can create hugging face tokens and set the environmetn HF_TOKEN=<your-token> 
 ```
 
 ### Robot hand assets
@@ -161,6 +154,9 @@ python scripts/asset_tools/download_robot_agents.py --all
 
 The bundles extract into `source/dexverse/dexverse/robot_agents/`, directly next to the configs
 that use them. 
+
+
+> **Note**: we currently release the Shadow hand. The remaining robot combinations are coming soon. 
 
 ### Object and scene assets
 
@@ -187,8 +183,7 @@ Verify the installation by listing the registered tasks:
 python scripts/list_envs.py
 ```
 
-Then run any task with a dummy agent — this loads the full environment (scene, robot, sensors)
-without needing demonstrations or a trained policy, so it is the quickest end-to-end check:
+You can also run tasks with a dummy agent. This loads the full environment without needing demonstrations or a trained policy:
 
 ```bash
 # apply zero actions every step
@@ -205,7 +200,7 @@ environments are spawned.
 
 ## Demonstrations
 
-> 🚧 **Instructions Coming soon.** 
+> 🚧 **Data and Instructions Coming soon.** 
 
 ## Teleoperation and Data Collection
 
@@ -214,7 +209,7 @@ environments are spawned.
 
 ## Contact
 
-For questions about the benchmark or this codebase, please feel free to open a GitHub issue or reach out to:
+For questions about the benchmark or this codebase, please don't hesitate to open a GitHub issue or directly reach out to:
 
 - **Yunchao Yao** — [yunchaoy@cs.unc.edu](mailto:yunchaoy@cs.unc.edu)
 
@@ -226,7 +221,7 @@ If you find DexVerse useful in your research, please cite:
 @article{yao2026dexverse,
   title   = {DexVerse: A Modular Benchmark for Multi-Task, Multi-Embodiment Dexterous Manipulation},
   author  = {Yao, Yunchao and Xu, Zhuxiu and Zhang, Tianqi and Li, Sikai and Wei, Zhenyu and Chen, Feng and Huang, Dihong and Wan, Kechang and Ma, Chenyang and Zhao, Shuqi and Gao, Shenghua and Tomizuka, Masayoshi and Ma, Yi and Ding, Mingyu},
-  journal = {arXiv preprint arXiv:XXXX.XXXXX},
+  journal = {arXiv preprint arXiv:2607.08751},
   year    = {2026}
 }
 ```
