@@ -36,7 +36,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-DEFAULT_REPO = "dexverse/DexVerse_Dataset"
+DEFAULT_REPO = "dexverse/DexVerse_release"
 DEFAULT_REPO_TYPE = "dataset"
 # Subdir within the HF repo that the asset bundles live under.
 REPO_SUBDIR = "assets"

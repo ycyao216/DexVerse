@@ -134,7 +134,7 @@ python -m pip install matplotlib "opencv-python<4.12" open3d imageio-ffmpeg "num
 ## Downloading Assets
 
 The robot hand and object/scene assets are not stored in the git repository. They are hosted on the gated
-Hugging Face dataset [`dexverse/DexVerse_Dataset`](https://huggingface.co/datasets/dexverse/DexVerse_Dataset)
+Hugging Face dataset [`dexverse/DexVerse_release`](https://huggingface.co/datasets/dexverse/DexVerse_release)
 and must be downloaded before any environment can run. Log in once and accept the dataset terms:
 
 ```bash

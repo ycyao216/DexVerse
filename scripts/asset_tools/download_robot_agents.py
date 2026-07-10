@@ -7,7 +7,7 @@
 dataset and extract them back into the in-package ``robot_agents/`` directory.
 
 Inverse of ``upload_robot_agents.py``. The bundles live under the
-``robot_agents/`` prefix of ``dexverse/DexVerse_Dataset`` as one ``<subdir>.zip``
+``robot_agents/`` prefix of ``dexverse/DexVerse_release`` as one ``<subdir>.zip``
 per hand directory (currently: shadow), each rooted at ``robot_agents/``. The
 text sources for these agents (Python + yaml configs) are tracked in git, so
 this script only restores the large binary assets (USD, URDF, meshes). Each
@@ -26,8 +26,7 @@ Examples
     # List what's available on the remote
     python scripts/asset_tools/download_robot_agents.py --list
 
-The dataset is gated. Run ``huggingface-cli login`` once (and accept the terms
-on the dataset page) before using this script.
+The dataset is public; no Hugging Face login is required.
 """
 
 from __future__ import annotations
@@ -37,7 +36,7 @@ import json
 import zipfile
 from pathlib import Path
 
-DEFAULT_REPO = "dexverse/DexVerse_Dataset"
+DEFAULT_REPO = "dexverse/DexVerse_release"
 DEFAULT_REPO_TYPE = "dataset"
 REMOTE_PREFIX = "robot_agents"
 MANIFEST_NAME = "MANIFEST.json"
