@@ -1,8 +1,8 @@
 # Mount DexVerse into the Isaac Lab docker container
 
-`docker-compose.dexverse.patch.yaml` is a Docker Compose patch that bind-mounts this repository
-into the Isaac Lab container at `/workspace/dexverse`. Instead of copying or editing Isaac Lab's
-own `docker-compose.yaml`, pass the patch to Isaac Lab's `docker/container.py` via `--files`:
+`docker-compose.dexverse.patch.yaml` bind-mounts this repository and a host `datastorage/`
+directory into the Isaac Lab container. Pass it to Isaac Lab's `docker/container.py` via
+`--files`:
 
 ```bash
 cd <workspace>/IsaacLab
@@ -20,14 +20,38 @@ For CloudXR teleoperation, combine it with Isaac Lab's CloudXR patch (see the ma
     --env-files .env.cloudxr-runtime
 ```
 
-Notes:
+## What gets mounted
 
-- Relative paths — both the `--files` arguments and the bind sources inside the patch — are
-  resolved against `IsaacLab/docker`, so the defaults assume DexVerse is cloned next to Isaac Lab.
-  If DexVerse lives elsewhere, export `DEXVERSE_PATH=/abs/path/to/DexVerse` before running
-  `container.py`.
-- Inside the container, install DexVerse once per container:
+| Host path (under DexVerse repo) | Container path |
+| --- | --- |
+| `source/dexverse/` | `/workspace/dexverse/source/dexverse` |
+| `scripts/` | `/workspace/dexverse/scripts` |
+| `datastorage/` | `/workspace/dexverse/datastorage` |
 
-  ```bash
-  ./isaaclab.sh -p -m pip install -e /workspace/dexverse/source/dexverse
-  ```
+The patch sets `DEXVERSE_DATA_DIR=/workspace/dexverse/datastorage`. When this variable is
+present, `scripts/record_demos.py` redirects all output to the host-mounted `datastorage/`
+folder.
+
+Create the host directory once if needed:
+
+```bash
+mkdir -p /path/to/DexVerse/datastorage
+```
+
+Run DexVerse scripts from inside the container:
+
+```bash
+cd /workspace/dexverse
+python -m pip install -e source/dexverse   # once per container
+./isaaclab.sh -p scripts/record_demos.py \
+    --task Dexverse-PickUpStick-v0 \
+    --dataset_dir grasping \
+    --teleop_device handtracking \
+    --enable_pinocchio
+```
+
+## Notes
+
+- Relative paths in `--files` and bind sources are resolved against `IsaacLab/docker`. The
+  defaults assume DexVerse is cloned next to Isaac Lab. If it lives elsewhere, export
+  `DEXVERSE_PATH=/abs/path/to/DexVerse` before running `container.py`.

@@ -23,9 +23,12 @@ Required arguments:
 
 Optional arguments:
     -h, --help                Show this help message and exit
-    --dataset_file            File path to export the trajectory pickle.
+    --dataset_file            File path to export the trajectory pickle. When
+                              DEXVERSE_DATA_DIR is set (Docker), the file is
+                              written under that mounted directory.
     --dataset_dir             Root directory to export the trajectory pickle. Output path will be
-                              "<dataset_dir>/<task_name>/<task_name>_<time>.pkl".
+                              "<dataset_dir>/<task_name>/<task_name>_<time>.pkl". Under Docker,
+                              only the relative subpath is kept; the host mount is always used.
     --record_state            Enable recording per-step scene states (T+1 snapshots per episode).
     --num_demos               Number of demonstrations to record. (default: 0, infinite)
     --num_success_steps       Number of continuous steps with task success for concluding a demo as successful. (default: 10)
@@ -44,11 +47,11 @@ import pickle
 import re
 import time
 from collections.abc import Callable
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import torch
+from dexverse.demo_paths import DEXVERSE_DATA_DIR_ENV, get_dexverse_data_dir, resolve_demo_output_path
 from isaaclab.app import AppLauncher
 
 logger = logging.getLogger(__name__)
@@ -71,7 +74,11 @@ parser.add_argument(
     "--dataset_dir",
     type=str,
     default=None,
-    help="Root directory to export trajectory pickle as '<dataset_dir>/<task_name>/<task_name>_<time>.pkl'.",
+    help=(
+        "Root directory to export trajectory pickle as "
+        "'<dataset_dir>/<task_name>/<task_name>_<time>.pkl'. When "
+        f"{DEXVERSE_DATA_DIR_ENV} is set, output is redirected to that mount."
+    ),
 )
 parser.add_argument(
     "--record_state",
@@ -177,39 +184,21 @@ if args_cli.task is None:
     parser.error("--task is required")
 
 
-def _resolve_dataset_file_path(task_name: str, dataset_file: str | None, dataset_dir: str | None) -> str:
-    """Resolve output pickle path from CLI options.
-
-    Precedence:
-    1) ``--dataset_file`` (must be a file path)
-    2) ``--dataset_dir`` (always directory semantics as ``<dataset_dir>/<task_name>/<task_name>_<time>.pkl``)
-    3) default ``datasets/<task_name>_<time>/trajectory.pkl``
-    """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    auto_name = f"{task_name}_{timestamp}.pkl"
-
-    if dataset_file:
-        if dataset_file.endswith(("/", "\\")) or Path(dataset_file).is_dir():
-            raise ValueError(
-                "--dataset_file must be a file path, not a directory. "
-                "Use --dataset_dir for directory-based auto naming."
-            )
-        output_path = Path(dataset_file)
-    elif dataset_dir:
-        output_path = Path(dataset_dir) / task_name / auto_name
-    else:
-        output_path = Path("datasets") / f"{task_name}_{timestamp}" / "trajectory.pkl"
-
-    if output_path.suffix.lower() not in {".pkl", ".pickle"}:
-        output_path = output_path.with_suffix(".pkl")
-    return str(output_path)
-
-
 env_name = args_cli.task.split(":")[-1]
 try:
-    args_cli.dataset_file = _resolve_dataset_file_path(env_name, args_cli.dataset_file, args_cli.dataset_dir)
+    resolved_dataset_file = resolve_demo_output_path(env_name, args_cli.dataset_file, args_cli.dataset_dir)
 except ValueError as exc:
     parser.error(str(exc))
+
+args_cli.dataset_file = str(resolved_dataset_file)
+data_root = get_dexverse_data_dir()
+if data_root is not None:
+    logger.info(
+        "%s is set to %s; recording to %s",
+        DEXVERSE_DATA_DIR_ENV,
+        data_root,
+        args_cli.dataset_file,
+    )
 
 app_launcher_args = vars(args_cli)
 

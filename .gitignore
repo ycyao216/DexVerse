@@ -60,6 +60,8 @@ _build
 
 # Teleop Recorded Dataset
 /datasets/
+/datastorage/*
+!/datastorage/.gitkeep
 
 # Tests
 tests/

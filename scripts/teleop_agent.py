@@ -8,11 +8,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Script to run teleoperation with DexVerse environments.
+"""Script to run VR teleoperation with DexVerse environments.
 
-Supports multiple input devices (e.g., keyboard, spacemouse, gamepad) and devices
-configured within the environment (including OpenXR-based hand tracking or motion
-controllers)."""
+Teleoperation uses OpenXR-based devices (e.g. hand tracking) configured in each
+environment's ``teleop_devices`` field."""
 
 """Launch Isaac Sim Simulator first."""
 
@@ -29,9 +28,8 @@ parser.add_argument(
     type=str,
     default="handtracking",
     help=(
-        "Teleop device. Set here (legacy) or via the environment config. If using the environment config, pass the"
-        " device key/name defined under 'teleop_devices' (it can be a custom name, not necessarily 'handtracking')."
-        " Built-ins: keyboard, spacemouse, gamepad. Not all tasks support all built-ins."
+        "Teleop device name. Must match a key under the environment config's "
+        "'teleop_devices' (typically 'handtracking')."
     ),
 )
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
@@ -60,7 +58,6 @@ parser.add_argument(
     default=None,
     help="Path to template JSON spec. Required for *Template environments.",
 )
-parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 parser.add_argument(
     "--teleop_retargeter",
     type=str,
@@ -158,14 +155,6 @@ from dexverse.tasks.config.floating_teleop import (
     apply_teleop_retargeting_scheme,
 )
 from dexverse.tasks.utils import parse_env_cfg, prune_stale_obs_refs, strip_camera_cfgs
-from isaaclab.devices import (
-    Se3Gamepad,
-    Se3GamepadCfg,
-    Se3Keyboard,
-    Se3KeyboardCfg,
-    Se3SpaceMouse,
-    Se3SpaceMouseCfg,
-)
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from omegaconf import OmegaConf
@@ -371,15 +360,10 @@ def main() -> None:  # noqa: C901
         "RESET": reset_recording_instance,
     }
 
-    # For hand tracking devices, add additional callbacks
-    if args_cli.xr:
-        # Default to inactive for hand tracking
-        teleoperation_active = False
-    else:
-        # Always active for other devices
-        teleoperation_active = True
+    # For XR devices, teleoperation starts inactive until the user presses START.
+    teleoperation_active = False
 
-    # Create teleop device from config if present, otherwise create manually
+    # Create teleop device from environment config.
     teleop_interface = None
     try:
         if hasattr(env_cfg, "teleop_devices") and args_cli.teleop_device in env_cfg.teleop_devices.devices:
@@ -387,36 +371,14 @@ def main() -> None:  # noqa: C901
                 args_cli.teleop_device, env_cfg.teleop_devices.devices, teleoperation_callbacks
             )
         else:
-            logger.warning(
-                f"No teleop device '{args_cli.teleop_device}' found in environment config. Creating default."
+            available = list(env_cfg.teleop_devices.devices.keys()) if hasattr(env_cfg, "teleop_devices") else "None"
+            logger.error(
+                f"No teleop device '{args_cli.teleop_device}' found in environment config."
+                f" Available devices: {available}"
             )
-            # Create fallback teleop device
-            sensitivity = args_cli.sensitivity
-            if args_cli.teleop_device.lower() == "keyboard":
-                teleop_interface = Se3Keyboard(
-                    Se3KeyboardCfg(pos_sensitivity=0.05 * sensitivity, rot_sensitivity=0.05 * sensitivity)
-                )
-            elif args_cli.teleop_device.lower() == "spacemouse":
-                teleop_interface = Se3SpaceMouse(
-                    Se3SpaceMouseCfg(pos_sensitivity=0.05 * sensitivity, rot_sensitivity=0.05 * sensitivity)
-                )
-            elif args_cli.teleop_device.lower() == "gamepad":
-                teleop_interface = Se3Gamepad(
-                    Se3GamepadCfg(pos_sensitivity=0.1 * sensitivity, rot_sensitivity=0.1 * sensitivity)
-                )
-            else:
-                logger.error(f"Unsupported teleop device: {args_cli.teleop_device}")
-                logger.error("Configure the teleop device in the environment config.")
-                env.close()
-                simulation_app.close()
-                return
-
-            # Add callbacks to fallback device
-            for key, callback in teleoperation_callbacks.items():
-                try:
-                    teleop_interface.add_callback(key, callback)
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"Failed to add callback for key {key}: {e}")
+            env.close()
+            simulation_app.close()
+            return
     except Exception as e:
         logger.error(f"Failed to create teleop device: {e}")
         env.close()
@@ -435,9 +397,7 @@ def main() -> None:  # noqa: C901
     env.reset()
     teleop_interface.reset()
 
-    print("Teleoperation started. Press 'R' to reset the environment.")
-    if args_cli.xr:
-        print("For XR devices: Use START/STOP gestures or buttons to control teleoperation.")
+    print("Teleoperation started. Use START/STOP gestures or buttons to control the session.")
 
     # Module-level variables for debug tracking
     _printed_bodies = False

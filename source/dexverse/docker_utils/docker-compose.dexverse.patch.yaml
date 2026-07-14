@@ -3,10 +3,17 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-# Docker Compose patch that bind-mounts the DexVerse repository into the
-# Isaac Lab container at /workspace/dexverse. Pass it to Isaac Lab's
-# docker/container.py via --files (alongside Isaac Lab's own patch files)
-# instead of copying or editing Isaac Lab's docker-compose.yaml.
+# Docker Compose patch that bind-mounts the DexVerse repository and a host
+# datastorage directory into the Isaac Lab container. Pass it to Isaac Lab's
+# docker/container.py via --files (alongside Isaac Lab's own patch files) 
+
+# Mounts:
+#   - source/dexverse  -> /workspace/dexverse/source/dexverse
+#   - scripts/         -> /workspace/dexverse/scripts
+#   - datastorage/     -> /workspace/dexverse/datastorage (for recorded demos)
+#
+# Sets DEXVERSE_DATA_DIR=/workspace/dexverse/datastorage so record_demos.py
+# always writes trajectories to the host-mounted datastorage folder.
 #
 # Relative paths below are resolved against IsaacLab/docker (the directory
 # of the base docker-compose.yaml), so the defaults assume DexVerse is
@@ -15,6 +22,8 @@
 
 services:
   isaac-lab-base:
+    environment:
+      - DEXVERSE_DATA_DIR=/workspace/dexverse/datastorage
     volumes:
       - type: bind
         source: ${DEXVERSE_PATH:-../../DexVerse}/source/dexverse
@@ -22,3 +31,6 @@ services:
       - type: bind
         source: ${DEXVERSE_PATH:-../../DexVerse}/scripts
         target: /workspace/dexverse/scripts
+      - type: bind
+        source: ${DEXVERSE_PATH:-../../DexVerse}/datastorage
+        target: /workspace/dexverse/datastorage
