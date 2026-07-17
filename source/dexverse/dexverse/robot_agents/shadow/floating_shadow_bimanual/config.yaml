@@ -3,8 +3,11 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-asset_path: /home/ycyao/extra_storage/dexbench_fresh/dex-urdf/robots/hands/shadow_hand/floating_shadow_bimanual.urdf
-usd_dir: /home/ycyao/extra_storage/dexbench_fresh/dex-urdf/shadow_urdf_to_usd/floating_shadow_bimanual
+# Paths are relative to this config file's directory.
+# NOTE: the bimanual source URDF is not shipped in-repo (only left/right live
+# under ../retarget/); this points to its expected in-repo location.
+asset_path: ../retarget/floating_shadow_bimanual.urdf
+usd_dir: .
 usd_file_name: floating_shadow_bimanual.usd
 force_usd_conversion: true
 make_instanceable: true

@@ -11,7 +11,7 @@ title = "Dexverse"
 author = "The DexVerse Project Developers"
 maintainer = "The DexVerse Project Developers"
 description="Dexverse tasks and assets for Isaac Lab"
-repository = "https://github.com/ycyao216/dexbench.git"
+repository = "https://github.com/ycyao216/dexverse.git"
 keywords = ["dexverse", "extension", "isaaclab"]
 
 [dependencies]

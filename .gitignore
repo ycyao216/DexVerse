@@ -71,7 +71,7 @@ tests/
 
 # Local OpenXR runtime files
 /openxr/
-/source/dexbench/dexbench/tasks/config/rigid/texas_poker/
+/source/dexverse/dexverse/tasks/config/rigid/texas_poker/
 /supplementary/*
 /scripts/capture_scripts/*
 
