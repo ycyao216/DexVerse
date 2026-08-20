@@ -584,7 +584,14 @@ class SimpleRelativeRetargeter(RetargeterBase):
         wrist_pose = np.asarray(wrist_pose, dtype=np.float32)
         wrist_pos = wrist_pose[:3]
         wrist_quat = wrist_pose[3:]
-        canonical_rotation = self._get_normalized_wrist_rotation(wrist_quat).as_matrix().astype(np.float32)
+        canonical_rotation = hand_data.get("_retargeting_rotation")
+
+        if canonical_rotation is None:
+            canonical_rotation = self._get_normalized_wrist_rotation(wrist_quat).as_matrix().astype(np.float32)
+        else:
+            canonical_rotation = np.asarray(canonical_rotation, dtype=np.float32)
+            if canonical_rotation.shape != (3, 3) or not np.all(np.isfinite(canonical_rotation)):
+                return None
 
         joint_positions = np.zeros((len(DEX_RETARGETING_HAND_JOINT_NAMES), 3), dtype=np.float32)
         for idx, joint_name in enumerate(DEX_RETARGETING_HAND_JOINT_NAMES):
@@ -675,9 +682,14 @@ class SimpleRelativeRetargeter(RetargeterBase):
         for hand_data in hand_data_by_target.values():
             if not isinstance(hand_data, dict):
                 continue
-            for pose in hand_data.values():
+            # Device payloads may include private metadata such as a 3x3
+            # retargeting-frame rotation. Visualize only standard hand joints.
+            for joint_name in HAND_JOINT_NAMES:
+                pose = hand_data.get(joint_name)
+                if pose is None:
+                    continue
                 pose_array = np.asarray(pose, dtype=np.float32)
-                if pose_array.shape[0] >= 3:
+                if pose_array.shape == (7,):
                     joint_positions.append(pose_array[:3])
 
         if not joint_positions:
