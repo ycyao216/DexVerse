@@ -1,0 +1,39 @@
+# Example evaluation randomization configuration loaded by --domain_randomization_config.
+enabled: true
+
+# Override task configuration fields. Use events for values derived in __post_init__.
+overrides: {}
+
+events:
+  # Stable PickCube baseline with no additional object-pose offset.
+  reset_object:
+    enabled: true
+    params:
+      pose_range:
+        x: [0.0, 0.0]
+        y: [0.0, 0.0]
+        z: [0.0, 0.0]
+        roll: [0.0, 0.0]
+        pitch: [0.0, 0.0]
+        yaw: [0.0, 0.0]
+      velocity_range:
+        x: [0.0, 0.0]
+        y: [0.0, 0.0]
+        z: [0.0, 0.0]
+
+  # Robot joint reset noise. Zero ranges provide a stable baseline.
+  reset_robot_joints:
+    enabled: true
+    params:
+      position_range: [0.0, 0.0]
+      velocity_range: [0.0, 0.0]
+
+  # Background and lighting randomization is disabled by default. Set enabled
+  # to true to apply mdp.reset_environment_background; it affects gui/rgb modes.
+  reset_environment_background:
+    enabled: false
+    params:
+      indoor_intensity_range: [800.0, 3000.0]
+      outdoor_intensity_range: [1500.0, 4000.0]
+      exposure_range: [-1.0, 1.0]
+      color_temperature_mean_std: [6500.0, 500.0]
