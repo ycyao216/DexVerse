@@ -399,6 +399,50 @@ file. See `render_demo_video.py --help` for figure size, DPI, and other options.
 
 See also `source/dexverse/docker_utils/README.md` for Docker mount details.
 
+## Baseline Evaluation
+
+`scripts/eval/` evaluates a vision-language-action policy online: DexVerse rolls
+the environment out in Isaac Sim while the policy runs in a separate process and
+is queried over the network. Two baselines are wired up — **OpenVLA-OFT** (HTTP)
+and **openpi** π₀ / π₀.₅ (WebSocket). Separate processes are required: neither
+backend's torch / JAX / transformers pins are compatible with Isaac Sim's.
+
+Two baseline suites are defined: 12 single-hand tasks (28-DoF) and 7 bimanual
+tasks (56-DoF), with the natural-language prompts the checkpoints were finetuned
+on.
+
+Finetuned baseline weights are published on the Hugging Face Hub — one repo per
+baseline, each with a `single/` and a `bimanual/` folder:
+
+```bash
+hf download dexverse/pi05-dexverse --include 'single/*' --local-dir ~/dexverse-ckpts/pi05
+hf download dexverse/openvla-oft-dexverse --include 'single/*' --local-dir ~/dexverse-ckpts/openvla
+```
+
+Start a policy server, then evaluate against it:
+
+```bash
+# terminal 1 — policy server (paths are required env vars, no defaults)
+OPENPI_ROOT=/path/to/openpi \
+PYTHON_BIN=/path/to/openpi/.venv/bin/python \
+CKPT_DIR=~/dexverse-ckpts/pi05/single \
+CONFIG_NAME=<train config name> \
+    bash scripts/eval/serve_pi0.sh
+
+# terminal 2 — evaluation, in the DexVerse env
+python scripts/eval/eval_policy.py --policy pi0 --enable_cameras --headless \
+    --task Dexverse-GraspCup-v0 --num_episodes 20 --save_videos
+
+# or sweep a whole suite, one process per task
+POLICY=pi0 SUITE=single bash scripts/eval/run_all_tasks.sh
+```
+
+Per-task `metrics.json` and an aggregate `summary.json` are written under
+`runs/<policy>_eval_online/`. See
+[`scripts/eval/README.md`](scripts/eval/README.md) for checkpoint downloads, the
+server contracts, the observation-preset / state-width requirements (they differ
+per backend, and a mismatch fails silently), and the full flag reference.
+
 ## Demonstrations
 
 > 🚧 **Data and Instructions Coming soon.** 
