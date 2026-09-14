@@ -183,7 +183,34 @@ python scripts/asset_tools/download_robot_agents.py --all
 The bundles extract into `source/dexverse/dexverse/robot_agents/`, directly next to the configs
 that use them. 
 
-> **Note**: we currently release the Shadow hand. The remaining robot combinations are coming soon. 
+The following Python/YAML configurations are available in both v0 and v1 environments:
+
+| Hand | `--robot_type` values |
+| --- | --- |
+| Shadow | `floating_shadow_right`, `floating_shadow_left`, `floating_shadow_bimanual` |
+| Allegro | `floating_allegro_right`, `floating_allegro_left`, `floating_allegro_bimanual` |
+| Inspire | `floating_inspire_right`, `floating_inspire_left`, `floating_inspire_bimanual` |
+| Leap | `floating_leap_right`, `floating_leap_bimanual` (alias: `bimanual_leap`) |
+| Sharpa Wave | `floating_sharpa_right`, `floating_sharpa_left`, `floating_sharpa_bimanual` |
+| Wuji | `floating_wuji_right`, `floating_wuji_left`, `floating_wuji_bimanual` |
+
+Both DexPilot and vector finger retargeting configs are included. For example, add
+`--robot_type floating_allegro_right` to a compatible single-hand task command, or
+`--robot_type floating_allegro_bimanual` to a bimanual task command.
+
+**Asset availability:** the public Hugging Face release provides USD/URDF/mesh bundles
+for all six hand families above. `--all` downloads them into
+`source/dexverse/dexverse/robot_agents/`. FR3+Sharpa is excluded.
+See the [asset release notes](https://huggingface.co/datasets/dexverse/DexVerse_release/blob/main/robot_agents/README.md)
+for bundle details and validation coverage.
+
+Single-hand Allegro and Inspire support task-specific wrist initialization for both
+right and left hands in v0 and v1, including the pan and obstacle-slope tasks.
+
+**Current task limits:** local smoke tests found insufficient commanded wrist/finger
+response for Allegro/Leap bimanual in
+`Dexverse-BimanualLiftTray-v1`; both passed the v0 tray task. Registration and successful
+retargeting therefore do not imply that every task is ready for every hand.
 
 
 

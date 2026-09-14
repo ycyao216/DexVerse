@@ -6,9 +6,9 @@
 """Pull ``robot_agents/`` binary asset bundles from the DexVerse Hugging Face
 dataset and extract them back into the in-package ``robot_agents/`` directory.
 
-Inverse of ``upload_robot_agents.py``. The bundles live under the
+The bundles live under the
 ``robot_agents/`` prefix of ``dexverse/DexVerse_release`` as one ``<subdir>.zip``
-per hand directory (currently: shadow), each rooted at ``robot_agents/``. The
+per hand directory (shadow, allegro, inspire, leap, sharpa, wuji). The
 text sources for these agents (Python + yaml configs) are tracked in git, so
 this script only restores the large binary assets (USD, URDF, meshes). Each
 zip's arcnames are package-relative (``shadow/floating_shadow_right/...``), so

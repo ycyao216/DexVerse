@@ -629,21 +629,58 @@ class RobotConfig:
 def _get_tabletop_robot_setup_builders():
     """Build the robot_type -> setup builder registry for tabletop envs.
 
-    Shadow-only release: floating right / left / bimanual variants. The other
-    hand families (allegro, inspire, leap, sharpa, wuji) are staged under
-    source_unreleased/robot_agents/ pending further testing; restoring one
-    means moving its package back and re-adding its import + entries here.
+    Each hand family exposes floating right / left / bimanual variants
+    (Leap exposes right + bimanual). Matching binary assets are required.
     """
+    from dexverse.robot_agents.allegro.floating import (
+        build_tabletop_floating_allegro_bimanual_setup,
+        build_tabletop_floating_allegro_left_setup,
+        build_tabletop_floating_allegro_right_setup,
+    )
+    from dexverse.robot_agents.inspire.floating import (
+        build_tabletop_floating_inspire_bimanual_setup,
+        build_tabletop_floating_inspire_left_setup,
+        build_tabletop_floating_inspire_right_setup,
+    )
+    from dexverse.robot_agents.leap.floating import (
+        build_tabletop_floating_leap_bimanual_setup,
+        build_tabletop_floating_leap_right_setup,
+    )
     from dexverse.robot_agents.shadow.floating import (
         build_tabletop_floating_shadow_bimanual_setup,
         build_tabletop_floating_shadow_left_setup,
         build_tabletop_floating_shadow_right_setup,
+    )
+    from dexverse.robot_agents.sharpa.floating import (
+        build_tabletop_floating_sharpa_bimanual_setup,
+        build_tabletop_floating_sharpa_left_setup,
+        build_tabletop_floating_sharpa_right_setup,
+    )
+    from dexverse.robot_agents.wuji.floating import (
+        build_tabletop_floating_wuji_bimanual_setup,
+        build_tabletop_floating_wuji_left_setup,
+        build_tabletop_floating_wuji_right_setup,
     )
 
     return {
         "floating_shadow_right": build_tabletop_floating_shadow_right_setup,
         "floating_shadow_left": build_tabletop_floating_shadow_left_setup,
         "floating_shadow_bimanual": build_tabletop_floating_shadow_bimanual_setup,
+        "floating_allegro_right": build_tabletop_floating_allegro_right_setup,
+        "floating_allegro_left": build_tabletop_floating_allegro_left_setup,
+        "floating_allegro_bimanual": build_tabletop_floating_allegro_bimanual_setup,
+        "floating_inspire_right": build_tabletop_floating_inspire_right_setup,
+        "floating_inspire_left": build_tabletop_floating_inspire_left_setup,
+        "floating_inspire_bimanual": build_tabletop_floating_inspire_bimanual_setup,
+        "floating_sharpa_right": build_tabletop_floating_sharpa_right_setup,
+        "floating_sharpa_left": build_tabletop_floating_sharpa_left_setup,
+        "floating_sharpa_bimanual": build_tabletop_floating_sharpa_bimanual_setup,
+        "floating_wuji_right": build_tabletop_floating_wuji_right_setup,
+        "floating_wuji_left": build_tabletop_floating_wuji_left_setup,
+        "floating_wuji_bimanual": build_tabletop_floating_wuji_bimanual_setup,
+        "floating_leap_right": build_tabletop_floating_leap_right_setup,
+        "floating_leap_bimanual": build_tabletop_floating_leap_bimanual_setup,
+        "bimanual_leap": build_tabletop_floating_leap_bimanual_setup,
     }
 
 

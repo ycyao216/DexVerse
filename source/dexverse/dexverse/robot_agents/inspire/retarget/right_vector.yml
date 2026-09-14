@@ -1,0 +1,44 @@
+# Vector retargeting: wrist -> fingertip vectors (one per finger),
+# the minimal-parameter form (cf. <side>_dexpilot.yml). Auto-generated
+# from the dexpilot config so link/joint names stay in sync.
+retargeting:
+  type: vector
+  urdf_path: inspire_hand_right_dexrot.urdf
+  target_origin_link_names:
+  - hand_base_link
+  - hand_base_link
+  - hand_base_link
+  - hand_base_link
+  - hand_base_link
+  target_task_link_names:
+  - thumb_distal
+  - index_intermediate
+  - middle_intermediate
+  - ring_intermediate
+  - pinky_intermediate
+  target_link_human_indices:
+  - - 0
+    - 0
+    - 0
+    - 0
+    - 0
+  - - 4
+    - 8
+    - 12
+    - 16
+    - 20
+  target_joint_names:
+  - thumb_proximal_yaw_joint
+  - thumb_proximal_pitch_joint
+  - thumb_intermediate_joint
+  - thumb_distal_joint
+  - index_proximal_joint
+  - index_intermediate_joint
+  - middle_proximal_joint
+  - middle_intermediate_joint
+  - ring_proximal_joint
+  - ring_intermediate_joint
+  - pinky_proximal_joint
+  - pinky_intermediate_joint
+  low_pass_alpha: 0.8
+  scaling_factor: 1.3
