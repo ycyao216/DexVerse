@@ -12,6 +12,7 @@ from dexverse.assets import DEXVERSE_AUTHORED_ASSETS_DIR
 from isaaclab.assets import RigidObjectCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
@@ -106,10 +107,42 @@ GOAL_TEE_CFG = RigidObjectCfg(
 class PushTObservationsCfg(dexverse_base_env.ObservationsCfg):
     """Observation layout for the rigid push-T task.
 
-    Both the live tee and the kinematic goal-tee marker are exposed as
-    13-vec ``body_state_b`` in ``proprio`` (matching ``InsertPegObservationsCfg``
-    rationale).
+    ``state`` exposes the tee pose in the table frame and relative to the
+    goal. ``goal`` exposes the target pose in the table frame, including
+    orientation. Each pose contains position and a wxyz quaternion (7 values).
+    The existing full body states remain available in ``privileged``.
     """
+
+    @configclass
+    class StateObsCfg(ObsGroup):
+        tee_pose_b = ObsTerm(
+            func=mdp.body_pose_b,
+            noise=Unoise(n_min=-0.0, n_max=0.0),
+            params={"body_asset_cfg": SceneEntityCfg("object"), "base_asset_cfg": SceneEntityCfg("table")},
+        )
+        tee_pose_rel_goal = ObsTerm(
+            func=mdp.body_pose_b,
+            noise=Unoise(n_min=-0.0, n_max=0.0),
+            params={"body_asset_cfg": SceneEntityCfg("object"), "base_asset_cfg": SceneEntityCfg("goal_tee")},
+        )
+
+        def __post_init__(self):
+            self.enable_corruption = True
+            self.concatenate_terms = True
+            self.history_length = 0
+
+    @configclass
+    class GoalObsCfg(ObsGroup):
+        goal_tee_pose_b = ObsTerm(
+            func=mdp.body_pose_b,
+            noise=Unoise(n_min=-0.0, n_max=0.0),
+            params={"body_asset_cfg": SceneEntityCfg("goal_tee"), "base_asset_cfg": SceneEntityCfg("table")},
+        )
+
+        def __post_init__(self):
+            self.enable_corruption = True
+            self.concatenate_terms = True
+            self.history_length = 0
 
     @configclass
     class PrivilegedObsCfg(dexverse_base_env.ObservationsCfg.PrivilegedObsCfg):
@@ -129,6 +162,8 @@ class PushTObservationsCfg(dexverse_base_env.ObservationsCfg):
             params={"body_asset_cfg": SceneEntityCfg("object"), "base_asset_cfg": SceneEntityCfg("goal_tee")},
         )
 
+    state: StateObsCfg = StateObsCfg()
+    goal: GoalObsCfg = GoalObsCfg()
     privileged: PrivilegedObsCfg = PrivilegedObsCfg()
 
 

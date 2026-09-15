@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import os
 import pickle
@@ -550,13 +551,26 @@ def reset_random_inverted_v_obstacles(
             "active_count_range must satisfy 0 <= min <= max <= number of obstacle asset pairs; "
             f"got {active_count_range} for {num_obstacles} pairs"
         )
-    if num_obstacles > 1:
-        slot_spacing = (apex_tangent_range[1] - apex_tangent_range[0]) / (num_obstacles - 1)
-        guaranteed_spacing = slot_spacing - 2.0 * apex_tangent_jitter
-        if guaranteed_spacing < min_apex_tangent_spacing:
+    valid_active_slot_orders: list[tuple[int, ...]] = [()]
+    if max_active > 0:
+        slot_spacing = (
+            (apex_tangent_range[1] - apex_tangent_range[0]) / (num_obstacles - 1) if num_obstacles > 1 else 0.0
+        )
+        valid_active_slot_orders = [
+            slot_order
+            for slot_order in itertools.permutations(range(num_obstacles), max_active)
+            if all(
+                abs(slot_order[first_idx] - slot_order[second_idx]) * slot_spacing
+                - 2.0 * apex_tangent_jitter
+                >= min_apex_tangent_spacing
+                for first_idx in range(max_active)
+                for second_idx in range(first_idx + 1, max_active)
+            )
+        ]
+        if not valid_active_slot_orders:
             raise ValueError(
-                "Obstacle tangent slots are too close for the requested clearance; "
-                f"got {guaranteed_spacing:.3f} m, need {min_apex_tangent_spacing:.3f} m"
+                "No obstacle slot arrangement satisfies the requested tangent clearance; "
+                f"need {min_apex_tangent_spacing:.3f} m for {max_active} active obstacles"
             )
 
     env_origins = env.scene.env_origins[env_ids_t]
@@ -575,7 +589,12 @@ def reset_random_inverted_v_obstacles(
         device=device,
         dtype=torch.float32,
     )
-    slot_order = torch.argsort(torch.rand((num_envs, num_obstacles), device=device), dim=1)
+    if max_active > 0:
+        valid_slot_orders_t = torch.tensor(valid_active_slot_orders, device=device, dtype=torch.long)
+        sampled_order_indices = torch.randint(valid_slot_orders_t.shape[0], (num_envs,), device=device)
+        active_slot_order = valid_slot_orders_t[sampled_order_indices]
+    else:
+        active_slot_order = torch.empty((num_envs, 0), device=device, dtype=torch.long)
 
     left_dir_local = torch.tensor(
         [math.cos(leg_yaw_angle_rad), math.sin(leg_yaw_angle_rad), 0.0], device=device, dtype=torch.float32
@@ -596,7 +615,8 @@ def reset_random_inverted_v_obstacles(
     for obstacle_idx, (left_asset_cfg, right_asset_cfg) in enumerate(obstacle_asset_cfgs):
         active_mask = (obstacle_idx < active_counts).unsqueeze(1)
         apex_local = torch.zeros((num_envs, 3), device=device, dtype=torch.float32)
-        apex_local[:, 0] = slot_tangents[slot_order[:, obstacle_idx]]
+        if obstacle_idx < max_active:
+            apex_local[:, 0] = slot_tangents[active_slot_order[:, obstacle_idx]]
         if apex_tangent_jitter > 0.0:
             apex_local[:, 0] += torch.empty(num_envs, device=device, dtype=torch.float32).uniform_(
                 -apex_tangent_jitter, apex_tangent_jitter

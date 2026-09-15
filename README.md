@@ -449,6 +449,9 @@ python scripts/demo_tools/create_demo_files_sequential.py \
 Image storage dtypes are configurable with `--rgb-dtype` (`uint8` default, or `float32`) and
 `--depth-dtype` (`float16` default, or `float32`).
 
+PushT v0 now includes object and goal poses in the `state` preset. Regenerate
+earlier PushT state HDF5s and update policy input dimensions to use these fields.
+
 #### Recording a plain camera video for quick debugging during conversion (`--record-video`)
 
 `create_demo_files_sequential.py` can also write one MP4 per episode straight from a scene camera while it replays, which is handy for sanity-checking a conversion run. This is a raw camera render for debug purpose and is not affected by the choice of observation modes.
@@ -463,6 +466,10 @@ python scripts/demo_tools/create_demo_files_sequential.py \
 ```
 
 `--video-dir` defaults to a `videos/` sibling of each HDF5 output.
+
+Both replay modes restart physics before restoring each episode, matching the
+recorder. To compare 20 trajectories with videos and measured success rates,
+see [replay comparison](docs/replay_comparison.md).
 
 ### Rendering debug videos from an H5 (`render_demo_video.py`)
 

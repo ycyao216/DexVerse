@@ -68,11 +68,10 @@ OBSTACLE_MAX_APEX_TANGENT = (
 OBSTACLE_APEX_TANGENT_RANGE = (-0.30, OBSTACLE_MAX_APEX_TANGENT)
 OBSTACLE_APEX_TANGENT_JITTER = 0.005
 OBSTACLE_CLEARANCE_M = SMALL_SPHERE_RADIUS + 0.03
-OBSTACLE_APEX_MIN_TANGENT_SPACING = min(
-    OBSTACLE_CLEARANCE_M,
-    (OBSTACLE_APEX_TANGENT_RANGE[1] - OBSTACLE_APEX_TANGENT_RANGE[0]) / (MAX_NUM_OBSTACLES - 1)
-    - 2.0 * OBSTACLE_APEX_TANGENT_JITTER,
-)
+# Keep the two active obstacles far enough apart to leave a useful approach
+# region between them. The reset sampler skips adjacent storage slots when
+# needed to enforce this clearance, including worst-case tangent jitter.
+OBSTACLE_APEX_MIN_TANGENT_SPACING = 0.21
 OBSTACLE_LATERAL_HALF_EXTENT = (
     OBSTACLE_LEG_SIZE[0] * abs(math.sin(OBSTACLE_LEG_YAW_ANGLE_RAD)) + 0.5 * OBSTACLE_LEG_SIZE[1]
 )

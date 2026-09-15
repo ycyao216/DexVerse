@@ -7,7 +7,8 @@
 
 Where :mod:`create_demo_files` replays N episodes in N parallel envs, this
 script builds a single env (``num_envs=1``) and replays one episode at a
-time in a Python loop. Between episodes it calls ``env.reset_to(...)``,
+time in a Python loop. Before each episode it calls ``env.sim.reset()`` to
+match the recorder's physics restart, then ``env.reset_to(...)``,
 which routes through ``ManagerBasedEnv._reset_idx`` and therefore fires
 the event manager's ``reset`` mode — so randomizers like
 ``reset_environment_background`` (HDRI) and ``reset_table_texture`` get
@@ -1008,7 +1009,7 @@ def _replay_one_episode(
     payload: dict,
     label: str,
 ) -> bool | None:
-    """Replay one episode and append it to the writer. Returns the success flag."""
+    """Replay one episode and append it to the writer. Returns the recording label."""
     ep_index = int(episode.get("episode_index", -1))
     ep_name = episode.get("episode_name", f"demo_{ep_index}")
     ep_success = episode.get("success")
@@ -1026,7 +1027,7 @@ def _replay_one_episode(
     action_dim = int(env.action_space.shape[-1])
     if T == 0:
         print(f"  [skip] episode {ep_index} has no actions.")
-        return ep_success
+        return None
 
     states_seq = episode.get("states") if args_cli.set_state else None
     if args_cli.set_state and (states_seq is None or len(states_seq) != T + 1):
@@ -1038,6 +1039,10 @@ def _replay_one_episode(
     env_ids_one = torch.tensor([0], device=env.device, dtype=torch.long)
 
     with torch.inference_mode():
+        # Match record_demos.handle_reset, including before the first episode.
+        # Restoring poses/velocities alone does not reproduce the recorder's
+        # physics initialization and can make CPU action replay diverge.
+        env.sim.reset()
         # reset_to fires _reset_idx -> event_manager.apply(mode="reset"), so the
         # HDRI / table-texture randomizers resample for this episode. Then the
         # recorded scene state is laid on top.
@@ -1170,6 +1175,10 @@ def _replay_one_episode(
                             termination_instance_cache,
                         )
                     except Exception as exc:  # noqa: BLE001
+                        if term_name == "success":
+                            raise RuntimeError(
+                                f"Cannot measure replay success for episode {ep_index}, step {step_idx}."
+                            ) from exc
                         if not getattr(term_cfg, "_warned", False):
                             print(f"  [warn] termination {term_name!r} failed: {exc}")
                             term_cfg._warned = True  # type: ignore[attr-defined]
@@ -1292,6 +1301,8 @@ def _convert_one_group(group: PickleGroup) -> tuple[int, int, int]:
                 fps=args_cli.video_fps,
                 output_dir=_video_dir_for_group(group, output_path),
             )
+            if not video.enabled:
+                raise RuntimeError("--record-video was requested but the video recorder could not start.")
 
         # Initial reset so the env reaches its post-startup steady state.
         env.reset()
@@ -1336,11 +1347,11 @@ def _convert_one_group(group: PickleGroup) -> tuple[int, int, int]:
 
     total = len(episodes)
     unknown = total - succeeded - failed
-    parts = [f"success {succeeded}/{total}"]
+    parts = [f"recorded success {succeeded}/{total}"]
     if failed:
         parts.append(f"failed {failed}")
     if unknown:
-        parts.append(f"no-flag {unknown}")
+        parts.append(f"unevaluated {unknown}")
     print(f"  ({', '.join(parts)})")
     return (succeeded, failed, total)
 
@@ -1366,8 +1377,8 @@ def main() -> int:
         grand_total += t
 
     print(
-        f"\nDone. total={grand_total} success={grand_succ} failed={grand_fail} "
-        f"no-flag={grand_total - grand_succ - grand_fail}"
+        f"\nDone. total={grand_total} recorded_success={grand_succ} failed={grand_fail} "
+        f"unevaluated={grand_total - grand_succ - grand_fail}"
     )
     return 0
 
