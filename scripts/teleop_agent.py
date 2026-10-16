@@ -44,8 +44,9 @@ parser.add_argument(
     default=None,
     help=(
         "Optional robot variant override for environments that expose 'robot_type'. "
-        "Supported variants: floating_shadow_right, floating_shadow_left, "
-        "floating_shadow_bimanual."
+        "Use floating_{hand}_{side}: shadow, allegro, inspire, sharpa, or wuji "
+        "with right, left, or bimanual; leap with right or bimanual. "
+        "Requires the matching local robot assets."
     ),
 )
 parser.add_argument(
@@ -83,8 +84,8 @@ parser.add_argument(
     help=(
         "Dex-retargeting scheme for the fingers. 'dexpilot' (default) uses"
         " DexPilot pinch/wrist vectors; 'vector' matches palm->fingertip"
-        " vectors. Orthogonal to --teleop_retargeter. Currently wired for the"
-        " Shadow hand variants."
+        " vectors. Orthogonal to --teleop_retargeter. Available for every"
+        " floating hand via its per-hand retargeting configs."
     ),
 )
 parser.add_argument(

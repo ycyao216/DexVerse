@@ -88,8 +88,8 @@ tests/
 
 # robot_agents binary assets (USD/URDF/meshes) are hosted on Hugging Face and
 # fetched via scripts/asset_tools/download_robot_agents.py. Small text sources
-# (Python + yaml configs) stay tracked in git. Same split for the staged
-# non-shadow hands under source_unreleased/.
+# (Python + YAML configs) for all floating hands stay tracked in git.
+# Unpublished hand bundles can also be supplied locally.
 /source/dexverse/dexverse/robot_agents/**
 !/source/dexverse/dexverse/robot_agents/**/
 !/source/dexverse/dexverse/robot_agents/**/*.py
