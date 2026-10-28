@@ -1,0 +1,28 @@
+retargeting:
+  finger_tip_link_names:
+  - thumb_tip_head
+  - index_tip_head
+  - middle_tip_head
+  - ring_tip_head
+  low_pass_alpha: 0.8
+  scaling_factor: 1.3
+  target_joint_names:
+  - leap_0
+  - leap_1
+  - leap_2
+  - leap_3
+  - leap_4
+  - leap_5
+  - leap_6
+  - leap_7
+  - leap_8
+  - leap_9
+  - leap_10
+  - leap_11
+  - leap_12
+  - leap_13
+  - leap_14
+  - leap_15
+  type: DexPilot
+  urdf_path: leap_hand_right_fixed.urdf
+  wrist_link_name: palm_wrist
