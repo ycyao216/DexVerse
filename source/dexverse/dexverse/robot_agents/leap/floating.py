@@ -31,6 +31,7 @@ from isaaclab.utils import configclass
 from dexverse.devices.wrist_origin import compute_wrist_joint_origin
 
 from .. import TabletopRobotSetup, dex_retargeting_hand_spec
+from .camera_mount import BIMANUAL_LEAP_WRIST_CAMERA_OFFSETS, FLOATING_LEAP_RIGHT_WRIST_CAMERA_OFFSETS
 
 ASSET_DIR = Path(__file__).resolve().parent / "usd"
 _RETARGET_DIR = Path(__file__).resolve().parent / "retarget"
@@ -442,6 +443,7 @@ def build_tabletop_floating_leap_right_setup(
     return TabletopRobotSetup(
         robot_config_kwargs={
             "palm_body_name": FLOATING_LEAP_RIGHT_PALM_BODY_NAME,
+            "wrist_camera_offsets": FLOATING_LEAP_RIGHT_WRIST_CAMERA_OFFSETS,
             "fingertip_body_names": FLOATING_LEAP_RIGHT_FINGERTIP_BODY_NAMES,
             "hand_tips_body_names": FLOATING_LEAP_RIGHT_HAND_TIPS_BODY_NAMES,
             "wrist_joint_name": FLOATING_LEAP_RIGHT_WRIST_JOINT_NAME,
@@ -475,6 +477,7 @@ def build_tabletop_bimanual_leap_setup(
     return TabletopRobotSetup(
         robot_config_kwargs={
             "palm_body_name": BIMANUAL_LEAP_RIGHT_PALM_BODY_NAME,
+            "wrist_camera_offsets": BIMANUAL_LEAP_WRIST_CAMERA_OFFSETS,
             "right_palm_body_name": BIMANUAL_LEAP_RIGHT_PALM_BODY_NAME,
             "left_palm_body_name": BIMANUAL_LEAP_LEFT_PALM_BODY_NAME,
             "fingertip_body_names": BIMANUAL_LEAP_FINGERTIP_BODY_NAMES,
