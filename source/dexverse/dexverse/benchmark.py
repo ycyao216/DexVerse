@@ -24,6 +24,7 @@ PUSH_T_RODS_REVISION = "push-t-goal-rods-15cm-v1-2026-09-10"
 LONG_HORIZON_SIM_FIX_REVISIONS = {
     "Dexverse-LongHorizon-MakeCoffee-v0": "long-horizon-sim-fixes-v0-2026-11-07",
     "Dexverse-LongHorizon-CookFoods-v0": "long-horizon-cook-foods-fixes-v0-2026-11-07b",
+    "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0": "long-horizon-microwave-fixes-v0-2026-11-07b",
 }
 
 BASELINE_TASKS = (

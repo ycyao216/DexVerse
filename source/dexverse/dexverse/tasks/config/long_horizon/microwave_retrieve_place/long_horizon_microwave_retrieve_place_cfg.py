@@ -23,7 +23,9 @@ Success is driven by a strict, persistent :class:`mdp.StageGraphSpec` (one
 sub-stage per step above); the terminal stage is ``rotate_knob``. The strict
 ordering forces ``close_fridge`` before the microwave ``open`` (the challenge:
 the robot must know to shut the fridge first), and the knob turn to come after
-the microwave is closed. Either dial counts.
+the microwave is closed. Either dial counts. Success also needs the finished state
+true right now: the dish upright inside, the door shut, a dial turned, and the dish
+never tipped over. See ``checks.py`` for the thresholds and how they were measured.
 
 Asset notes
 ~~~~~~~~~~~
@@ -33,14 +35,13 @@ Asset notes
   *friction-detent* :class:`ImplicitActuatorCfg` (``stiffness=0`` -> no setpoint
   spring; static + dynamic ``friction`` and ``damping`` hold each joint wherever
   the hand leaves it), so the door stays where placed and the dials hold their
-  angle. BOTH dials are range-limited to ``[-pi/2, pi/2]`` at startup (they start
+  angle. BOTH dials are range-limited to ``[-pi/2, pi/2]`` by the asset prep (they start
   at 0, mid-range) so they can be turned either way; turning EITHER one by
   +/-18 deg from its start completes the task. Tune ``DOOR_STATIC_FRICTION``
   first: too low and the door sags open, too high and the hand cannot move it.
-- Food (``synthesis/micro_food/...texture.usd``) is a raw Meshy export with no
-  authored physics behind an instanceable reference; :func:`prepare_rigid_mesh_usd`
-  bakes a single-rigid-body, convex-hull-collidable copy (see ``usd_prep.py``).
-  It is the canonical ``scene.object`` and spawns inside the fridge.
+- Food is a round dish of stew with a flat side handle, built by ``dish.py`` so a
+  single hand can carry it. It is the canonical ``scene.object`` and spawns inside
+  the fridge with its handle toward the door.
 - Minifridge (``partnet_mobility/.../fridge/10797/mobility.usd``) is a small
   fixed-base fridge that sits ON the table. Its body is one revolute door
   (``joint_1``, ``link_1``) on a fixed body (``base`` + ``link_0``). PartNet
@@ -67,9 +68,10 @@ import math
 from pathlib import Path
 
 import isaaclab.sim as sim_utils
+import torch
 from dexverse.assets import PARTNET_MOBILITY_ARTICULATIONS_DIR, SYNTHESIS_DIR
 from isaaclab.actuators import ImplicitActuatorCfg
-from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -85,7 +87,28 @@ from scipy.spatial.transform import Rotation as R
 from .... import dexverse_base_env_cfg as dexverse_base_env
 from .... import mdp
 from ...floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG, setup_floating_teleop
-from .usd_prep import prepare_rigid_mesh_usd
+from ..check_utils import clear_stage_latches
+from ..handling import (
+    grip_material_event,
+    show_by_state,
+    tune_hand_for_carrying,
+    tune_teleop_for_carrying,
+    tune_wrist_camera_bodies,
+)
+from .checks import (
+    FRIDGE_OPEN_RAD,
+    FRIDGE_SHUT_RAD,
+    MICROWAVE_OPEN_RAD,
+    MICROWAVE_SHUT_RAD,
+    dial_turned,
+    door_at_least,
+    door_at_most,
+    finished,
+    food_placed,
+    microwave_running,
+    report_status,
+)
+from .dish import build_handled_dish_usd
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +129,10 @@ def _open_microwave_cavity_mouth(
     # inertia to be turned by fingertip contact (see KNOB_LINK_MASS).
     knob_link_names: tuple[str, ...] = ("link_1", "link_2"),
     knob_link_mass: float = 0.05,
+    # The dial joints are authored unlimited. PhysX ignores limits written at runtime
+    # to an unlimited joint, so their stops have to be authored here.
+    dial_joint_names: tuple[str, ...] = ("joint_1", "joint_2"),
+    dial_limit_deg: float = 90.0,
 ) -> str:
     """Cache a microwave USD that stays fully solid except for the food-cavity mouth.
 
@@ -135,11 +162,12 @@ def _open_microwave_cavity_mouth(
 
     PartNet authors mass=0 on every link; the tiny knob links then have near-zero
     inertia and their joints will not turn under fingertip contact, so we also set
-    a small real mass (``knob_link_mass``) on the knob links.
+    a small real mass (``knob_link_mass``) on the knob links. The dials are authored
+    with no limits, so they get stops at +/- ``dial_limit_deg``.
 
     The colliders live behind an **instanceable** reference, so the collisions
     group is de-instanced first to make the individual pieces authorable. Result
-    is cached next to the source as ``<stem>__cavityprep_v2.usd`` and rebuilt only
+    is cached next to the source as ``<stem>__cavityprep_v4.usd`` and rebuilt only
     when the source is newer (bump the suffix when this logic changes so stale
     caches are not reused). Returns the source path unchanged on any error /
     missing ``pxr`` / nothing to remove, so it never blocks task load.
@@ -153,7 +181,7 @@ def _open_microwave_cavity_mouth(
     except ImportError:
         return str(src)
 
-    cleaned = src.with_name(f"{src.stem}__cavityprep_v3.usd")
+    cleaned = src.with_name(f"{src.stem}__cavityprep_v4.usd")
     if cleaned.exists() and cleaned.stat().st_mtime >= src.stat().st_mtime:
         return str(cleaned)
 
@@ -251,6 +279,12 @@ def _open_microwave_cavity_mouth(
             mass_api = UsdPhysics.MassAPI.Apply(knob_prim)
             mass_attr = mass_api.GetMassAttr() or mass_api.CreateMassAttr()
             mass_attr.Set(float(knob_link_mass))
+
+        for prim in stage.Traverse():
+            if prim.GetName() in dial_joint_names and prim.IsA(UsdPhysics.RevoluteJoint):
+                dial = UsdPhysics.RevoluteJoint(prim)
+                dial.GetLowerLimitAttr().Set(-float(dial_limit_deg))
+                dial.GetUpperLimitAttr().Set(float(dial_limit_deg))
 
         stage.GetRootLayer().Export(str(cleaned))
         logger.info(
@@ -426,12 +460,9 @@ def _open_fridge_cavity(
 # front, top / bottom / sides / back -- plus the door / dials keep their
 # colliders and the body stays visible.
 MICROWAVE_USD_PATH = _open_microwave_cavity_mouth(PARTNET_MOBILITY_ARTICULATIONS_DIR / "microwave" / "7167.usd")
-# Raw Meshy food export: no authored physics + instanceable geometry. Bake a
-# single-rigid-body, convex-hull-collidable copy so it rests and is graspable.
-FOOD_USD_PATH = prepare_rigid_mesh_usd(
-    SYNTHESIS_DIR / "micro_food" / "Meshy_AI_Beef_stew_with_vegeta_0520120030_texture.usd",
-    approximation="convexHull",
-)
+# A dish of stew with a side handle (see dish.py). The original food, a flat Meshy
+# tray of stew, had nothing a single hand could hold and was tipped over in teleop.
+FOOD_USD_PATH = build_handled_dish_usd(SYNTHESIS_DIR / "micro_food")
 # Minifridge (PartNet 10797): a small fridge that sits ON the table. Its body
 # (``link_0``) is one open-box collision mesh whose convex hull is the SOLID box,
 # so a single hull (or any convex decomposition of it) seals the interior and the
@@ -489,12 +520,9 @@ KNOB_DAMPING = 0.05
 KNOB_ARMATURE = 0.005
 KNOB_LINK_MASS = 0.05
 
-# Both dials are range-limited to [-pi/2, pi/2] at startup (they start at 0,
+# Both dials stop at +/-90 deg, authored by the asset prep (they start at 0,
 # mid-range) so they can be turned EITHER way. Success is turning either dial by
-# KNOB_SUCCESS_THRESHOLD from its start, in either direction (+/- 18 deg).
-KNOB_LIMIT_LOWER = -math.pi / 2.0
-KNOB_LIMIT_UPPER = math.pi / 2.0
-KNOB_SUCCESS_THRESHOLD = math.radians(18.0)  # +/-18 deg turn from the start
+# ``checks.DIAL_ON_RAD`` from its start, in either direction (+/- 18 deg).
 
 
 # =====================================================================
@@ -536,13 +564,13 @@ FRIDGE_DAMPING = 0.2
 # Food geometry / placement
 # =====================================================================
 
-# The food mesh is a flat slab (~0.118 x 0.082 x 0.020 m) whose thin 0.02 m axis
-# is the asset's local +Y. Stand it up with a +90 deg roll about X so the wide
-# ~12x8 cm footprint rests on the table; its z half-height is then ~0.01 m.
-FOOD_SCALE = (2.0, 2.0, 2.0)
-FOOD_MASS = 0.2
-FOOD_HALF_HEIGHT_EST = 0.01
-FOOD_INIT_ROT = (math.cos(math.pi / 4), math.sin(math.pi / 4), 0.0, 0.0)
+# The dish's root is at the centre of its base, +Z up, handle along local +X. A
+# ceramic dish of stew weighs about half a kilo. It is yawed -90 deg so the handle
+# points at the fridge door (world -Y) and is the first thing the hand reaches.
+FOOD_SCALE = (1.0, 1.0, 1.0)
+FOOD_MASS = 0.5
+FOOD_HALF_HEIGHT_EST = 0.0
+FOOD_INIT_ROT = (math.cos(-math.pi / 4), 0.0, 0.0, math.sin(-math.pi / 4))
 # Placeholder spawn xy (overwritten in __post_init__ to the in-fridge location).
 FOOD_INIT_X = 0.0
 FOOD_INIT_Y = FRIDGE_CENTER_Y
@@ -550,10 +578,11 @@ FOOD_INIT_CLEARANCE_FROM_TABLE = 0.02
 
 # Food spawns INSIDE the minifridge as an offset from the fridge base (asset
 # local frame: -X is the door/front). It is dropped just above the interior floor
-# and settles onto it; ``FRIDGE_FOOD_LOCAL_X`` is pushed toward the door (-X) so
-# the food sits near the opening and is easy to grasp once the door is open.
+# and settles onto it. The dish centre sits at world y 0.40, so its handle, which
+# reaches 15.9 cm toward the door, ends clear of the closed door's inner face
+# (world y 0.213); any closer and the handle spawns inside the door.
 FRIDGE_FOOD_FLOOR_LOCAL_Z = -0.746  # interior floor == asset bottom (food rests near table top)
-FRIDGE_FOOD_LOCAL_X = -0.12  # toward the door (-X face)
+FRIDGE_FOOD_LOCAL_X = 0.143  # toward the back (+X face); the handle reaches the door
 FRIDGE_FOOD_LOCAL_Y = 0.0
 
 
@@ -563,26 +592,18 @@ def _yaw_rotate_xy(x: float, y: float, yaw: float) -> tuple[float, float]:
     return (x * c - y * s, x * s + y * c)
 
 
-# In-cavity placement goal (height above the table top; xy is the microwave centre).
+# In-cavity goal for the place-tracking reward (height above the table top; xy is
+# the microwave centre). Success uses the cavity box in ``checks.py`` instead.
 FOOD_PLACE_Z_OFFSET = 0.04
-PLACE_POSITION_THRESHOLD = 0.15
 
-# =====================================================================
-# Stage-graph thresholds
-# =====================================================================
-
-OPEN_DOOR_RATIO = 0.5  # door opened past 50% of its 0..90 range (~45 deg)
-# Door back near closed. The hinge is friction-held with no spring, so a teleop
-# push tends to leave it a few degrees ajar; keep this lenient enough that a
-# "shut" door reliably latches (0.20 of the 0..90 range ~= 18 deg).
-CLOSE_DOOR_RATIO = 0.20
-
-# Fridge door (joint_1, 0..180 deg). The robot must OPEN it past FRIDGE_OPEN_RATIO
-# to reach the food, then SHUT it back under FRIDGE_CLOSE_RATIO before it can open
-# the microwave (the open fridge door fouls the microwave door) -- this ordering
-# is the task's challenge.
-FRIDGE_OPEN_RATIO = 0.25  # ~45 deg of the 0..180 range
-FRIDGE_CLOSE_RATIO = 0.10  # ~18 deg -- shut
+# Window light shown while the microwave runs (door shut, a dial turned): a thin
+# warm panel just in front of the door's glass, which measures y -0.257-0.063 and
+# z 0.668-0.869 at x 0.123 in the world with the door shut. Offsets are from the
+# microwave root. Visual only, and fixed in place like the microwave itself.
+MICROWAVE_LIGHT_OFFSET = (-0.1785, 0.053, -0.0015)
+MICROWAVE_LIGHT_SIZE = (0.001, 0.316, 0.197)
+MICROWAVE_LIGHT_COLOR = (1.0, 0.55, 0.1)
+MICROWAVE_LIT_PRIMS = {1: ("MicrowaveLight",)}
 
 LONG_HORIZON_STAGE_GRAPH_KEY = "long_horizon.microwave_retrieve_place"
 
@@ -600,77 +621,63 @@ def stage_progress_reward(env, task_key: str, persistent: bool = True):
     return mdp.stage_progress(env, task_key=task_key, persistent=persistent).squeeze(-1)
 
 
+DIAL_JOINTS = (LOWER_KNOB_JOINT, KNOB_JOINT)
+
 MICROWAVE_STAGE_GRAPH = mdp.StageGraphSpec(
     stages=(
         mdp.StageSpec(
             name="open_fridge",
-            func=mdp.joint_relative_move,
+            func=door_at_least,
             params={
-                "threshold": FRIDGE_OPEN_RATIO,
-                "asset_cfg": SceneEntityCfg("fridge", joint_names=[FRIDGE_DOOR_JOINT]),
-                "mode": "ratio",
-                "op": ">=",
-                "reduce": "any",
+                "asset_name": "fridge",
+                "joint_name": FRIDGE_DOOR_JOINT,
+                "angle_rad": FRIDGE_OPEN_RAD,
+                "key": "open_fridge",
+                "message": "Fridge open. Next: take the food out and shut the fridge.",
             },
         ),
         mdp.StageSpec(
             name="close_fridge",
-            func=mdp.joint_relative_move,
+            func=door_at_most,
             params={
-                "threshold": FRIDGE_CLOSE_RATIO,
-                "asset_cfg": SceneEntityCfg("fridge", joint_names=[FRIDGE_DOOR_JOINT]),
-                "mode": "ratio",
-                "op": "<=",
-                "reduce": "any",
+                "asset_name": "fridge",
+                "joint_name": FRIDGE_DOOR_JOINT,
+                "angle_rad": FRIDGE_SHUT_RAD,
+                "key": "close_fridge",
+                "message": "Fridge shut. Next: open the microwave.",
             },
             deps=("open_fridge",),
         ),
         mdp.StageSpec(
             name="open",
-            func=mdp.joint_relative_move,
+            func=door_at_least,
             params={
-                "threshold": OPEN_DOOR_RATIO,
-                "asset_cfg": SceneEntityCfg("microwave", joint_names=[DOOR_JOINT]),
-                "mode": "ratio",
-                "op": ">=",
-                "reduce": "any",
+                "asset_name": "microwave",
+                "joint_name": DOOR_JOINT,
+                "angle_rad": MICROWAVE_OPEN_RAD,
+                "key": "open",
+                "message": "Microwave open. Next: set the food down inside.",
             },
             # Microwave may only be opened after the fridge has been shut.
             deps=("close_fridge",),
         ),
-        mdp.StageSpec(
-            name="place",
-            func=mdp.object_at_goal_position,
-            params={
-                "command_name": "object_pose",
-                "threshold": PLACE_POSITION_THRESHOLD,
-            },
-            deps=("open",),
-        ),
+        mdp.StageSpec(name="place", func=food_placed, deps=("open",)),
         mdp.StageSpec(
             name="close",
-            func=mdp.joint_relative_move,
+            func=door_at_most,
             params={
-                "threshold": CLOSE_DOOR_RATIO,
-                "asset_cfg": SceneEntityCfg("microwave", joint_names=[DOOR_JOINT]),
-                "mode": "ratio",
-                "op": "<=",
-                "reduce": "any",
+                "asset_name": "microwave",
+                "joint_name": DOOR_JOINT,
+                "angle_rad": MICROWAVE_SHUT_RAD,
+                "key": "close",
+                "message": "Microwave shut. Next: turn either dial.",
             },
             deps=("place",),
         ),
         mdp.StageSpec(
             name="rotate_knob",
-            func=mdp.joint_relative_move,
-            params={
-                "threshold": KNOB_SUCCESS_THRESHOLD,
-                # Either dial, either direction: |angle - start| past +/-18 deg
-                # (``mode="displacement"``, ``reduce="any"`` over both knobs).
-                "asset_cfg": SceneEntityCfg("microwave", joint_names=[LOWER_KNOB_JOINT, KNOB_JOINT]),
-                "mode": "displacement",
-                "op": ">=",
-                "reduce": "any",
-            },
+            func=dial_turned,
+            params={"dial_joints": DIAL_JOINTS},
             deps=("close",),
         ),
     ),
@@ -683,6 +690,21 @@ MICROWAVE_STAGE_GRAPH = mdp.StageGraphSpec(
     success_mode="substage",
 )
 mdp.register_stage_graph(LONG_HORIZON_STAGE_GRAPH_KEY, MICROWAVE_STAGE_GRAPH, override=True)
+
+
+def microwave_success(env, task_key: str) -> torch.Tensor:
+    """Every stage done, and the finished state still true right now.
+
+    The stage flags latch. Checking the end state live as well means a dish taken out
+    again, a door left open or a dial turned back does not count, and makes the
+    consecutive steps counted by ``--num_success_steps`` mean something.
+    """
+    stages_done = mdp.stage_success(env, task_key=task_key, persistent=True)
+    finished_now = finished(env, DOOR_JOINT, DIAL_JOINTS)
+    flags = mdp.evaluate_stage_graph(env, task_key=task_key, persistent=True)
+    report_status(env, ~(stages_done & finished_now), flags, FRIDGE_DOOR_JOINT, DOOR_JOINT, DIAL_JOINTS)
+    show_by_state(env, "microwave_light", MICROWAVE_LIT_PRIMS, microwave_running(env, DOOR_JOINT, DIAL_JOINTS).long())
+    return stages_done & finished_now
 
 
 # =====================================================================
@@ -794,8 +816,8 @@ FOOD_CFG = RigidObjectCfg(
             solver_velocity_iteration_count=1,
             disable_gravity=False,
         ),
-        # collision_props left None: keep the convexHull collider baked by
-        # prepare_rigid_mesh_usd (passing CollisionPropertiesCfg would clobber it).
+        # collision_props left None: keep the dish's authored colliders (passing
+        # CollisionPropertiesCfg would clobber them).
         mass_props=sim_utils.MassPropertiesCfg(mass=FOOD_MASS),
     ),
     init_state=RigidObjectCfg.InitialStateCfg(
@@ -1025,22 +1047,17 @@ class LongHorizonMicrowaveRetrievePlaceEventCfg(dexverse_base_env.EventCfg):
         params={"asset_cfg": SceneEntityCfg("fridge", joint_names=".*")},
     )
 
-    # Clamp BOTH dials to a finite [-pi/2, pi/2] range (start at 0, mid-range) so
-    # each can be turned either way and joint_range_progress_from_init has a
-    # finite span to normalize against.
-    set_knob_joint_limit = EventTerm(
-        func=mdp.events.set_joint_position_limits,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("microwave", joint_names=[LOWER_KNOB_JOINT, KNOB_JOINT]),
-            "lower": KNOB_LIMIT_LOWER,
-            "upper": KNOB_LIMIT_UPPER,
-        },
-    )
+    # Note: the dials' [-90, 90] deg stops are authored at asset-prep time (see
+    # _open_microwave_cavity_mouth). A limit event cannot add them: the dials are
+    # authored unlimited, and PhysX ignores limits written to an unlimited joint.
     # Note: the cavity-mouth colliders are dropped at asset-prep time (see
     # MICROWAVE_USD_PATH / _open_microwave_cavity_mouth) so the cavity is
     # reachable while the rest of the body stays solid; no runtime
     # collision-toggling event is needed here.
+
+    # Grip, re-applied on every reset for the same reason as the dial limits.
+    robot_physics_material = grip_material_event("robot")
+    food_physics_material = grip_material_event("object")
 
 
 @configclass
@@ -1111,7 +1128,27 @@ class LongHorizonMicrowaveRetrievePlaceEnvCfg(dexverse_base_env.DexVerseBaseEnvC
 
         # Stage "place" goal: inside the microwave cavity (xy at the microwave
         # centre, z just above the cavity floor / table top).
-        mx, my, _ = self.scene.microwave.init_state.pos
+        mx, my, mz = self.scene.microwave.init_state.pos
+        light = tuple(base + offset for base, offset in zip((mx, my, mz), MICROWAVE_LIGHT_OFFSET))
+        self.scene.microwave_light = AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/MicrowaveLight",
+            spawn=sim_utils.CuboidCfg(
+                size=MICROWAVE_LIGHT_SIZE,
+                visible=False,
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=MICROWAVE_LIGHT_COLOR, emissive_color=MICROWAVE_LIGHT_COLOR
+                ),
+            ),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=light),
+        )
+        self.terminations.success = DoneTerm(
+            func=microwave_success, params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY}
+        )
+        # The state observation evaluates the stage graph as an episode restarts, but
+        # presets without it would otherwise carry one attempt's stages into the next.
+        self.events.clear_stage_latches = EventTerm(
+            func=clear_stage_latches, mode="reset", params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY}
+        )
         goal_z = table_top_z + FOOD_PLACE_Z_OFFSET
         self.commands.object_pose.ranges.pos_x = (mx, mx)
         self.commands.object_pose.ranges.pos_y = (my, my)
@@ -1120,9 +1157,9 @@ class LongHorizonMicrowaveRetrievePlaceEnvCfg(dexverse_base_env.DexVerseBaseEnvC
         if self.events.reset_object is not None:
             self.events.reset_object.func = mdp.reset_articulation_with_supports_uniform
             self.events.reset_object.params.pop("velocity_range", None)
-            # Food now rests directly on the fridge shelf near the door (no tray
-            # support). Keep the spawn randomization small so the perturbed/rotated
-            # food never overlaps the closed door or slides off the shelf.
+            # The dish rests directly on the fridge shelf. Keep the spawn
+            # randomization small so the perturbed/rotated dish and its handle never
+            # overlap the closed door or slide off the shelf.
             self.events.reset_object.params["pose_range"] = {
                 "x": [-0.015, 0.015],
                 "y": [-0.015, 0.015],
@@ -1182,4 +1219,8 @@ class LongHorizonMicrowaveRetrievePlaceEnvFloatingDexHandRightCfg(LongHorizonMic
     def __post_init__(self):
         super().__post_init__()
 
+        tune_hand_for_carrying(self)
+        tune_wrist_camera_bodies(self)
         setup_floating_teleop(self)
+        table = self.scene.table
+        tune_teleop_for_carrying(self, surface_z=table.init_state.pos[2] + 0.5 * table.spawn.size[2])
