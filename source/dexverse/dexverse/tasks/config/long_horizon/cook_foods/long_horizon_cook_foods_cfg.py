@@ -3,19 +3,16 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Long-horizon: cook foods (place pot on stove + pour water into pot).
+"""Long-horizon: cook foods (pot on the stove, ingredients in, stove on).
 
-Two-stage task that re-uses the same single-object pour template as
-``pour_can_cfg`` (small water bottle is the pour object) together with the
-flat-placement template from ``grasp_pan_cfg`` (pot002 is placed on the
-stove burner). Success requires BOTH sub-tasks:
+Success requires all of:
 
-  - the pot is on the stove burner xy and lying roughly flat, and
-  - the bottle is lifted, tilted past the pour threshold, and its spout xy
-    is over the pot.
+  - the water bottle and the tomato soup can each poured into the upright pot,
+  - the pot sitting flat on the green-marked burner, not tipped since a pour,
+  - every meat piece inside the pot, and
+  - the green-marked knob turned, with all of the above still true.
 
-The pour-goal indicator is slaved to the pot each reset, so the policy must
-move the pot before the pour target is in a useful place.
+See ``checks.py`` for what each of these verifies.
 """
 
 from __future__ import annotations
@@ -28,7 +25,6 @@ import torch
 from dexverse.assets import LONG_HORIZON_EXTRA_COOKING_DIR, SYNTHESIS_DIR, YCB_DIR
 from dexverse.tasks.config.floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG
 from dexverse.tasks.config.functional.base_cfg import (
-    POUR_ANGLE_RAD,
     ForbiddenZone,
     FunctionalPourEnvFloatingDexHandRightCfg,
     build_object_cfg_from_usd,
@@ -37,22 +33,39 @@ from dexverse.tasks.config.robot_init import (
     align_retargeter_wrist_origin_to_init,
     set_robot_wrist_init_world_pos,
 )
-from dexverse.tasks.mdp.utils import axis_tilt_angle
 from isaaclab.actuators import ImplicitActuatorCfg
-from isaaclab.assets import ArticulationCfg, RigidObject, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.devices.openxr import XrCfg
-from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
+from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab.sim.utils import clone
 from isaaclab.utils import configclass
-from isaaclab.utils.math import quat_apply, quat_apply_inverse
+from isaaclab.utils.math import quat_apply
 
 from .... import dexverse_base_env_cfg as dexverse_base_env
 from .... import mdp
 from ...articulation.articulation_base.usd_helpers import (
     ensure_single_articulation_root,
+)
+from ..check_utils import clear_stage_latches, ever_held
+from ..handling import (
+    GOAL_MARK_THICKNESS,
+    goal_mark_cfg,
+    grip_material_event,
+    show_by_state,
+    tune_hand_for_carrying,
+    tune_teleop_for_carrying,
+    tune_wrist_camera_bodies,
+)
+from .checks import (
+    POUR_TILT_RAD,
+    knob_angle,
+    pot_liquid,
+    poured_into_pot,
+    report_status,
+    stove_on_and_pot_ready,
 )
 
 SYNTHESIS_COOKING_DIR = LONG_HORIZON_EXTRA_COOKING_DIR
@@ -71,11 +84,30 @@ BOTTLE_POUR_SPOUT_LOCAL_OFFSET = (0.0, 0.20, 0.0)
 
 POT_USD_PATH = str(SYNTHESIS_COOKING_DIR / "pot002" / "model_pot2.usd")
 POT_SCALE = (1.5, 1.5, 1.5)
-POT_MASS = 0.4
-# 180° rotation about world Z in (w, x, y, z) order, so the pot's
-# handles face the opposite direction at spawn.
-POT_ROT_INIT = (0.0, 0.0, 0.0, 1.0)
+# A 25 cm saucepan with a 40 cm handle; real empty ones weigh about 1-1.5 kg. The hand
+# lifted and carried it by the handle at up to 2 kg in scripted grasps, with no slip.
+POT_MASS = 1.2
+# Yaw that points the handle (the pot's local +X) toward the operator and a little to
+# their right, world direction (-0.92, -0.39). Straight at the operator it would cross
+# the meat bowl; further right, its end would sit on the hand's starting thumb.
+POT_HANDLE_YAW = math.atan2(-0.39, -0.92)
+POT_ROT_INIT = (math.cos(POT_HANDLE_YAW / 2), 0.0, 0.0, math.sin(POT_HANDLE_YAW / 2))
 POT_HALF_HEIGHT_EST = 0.03  # TODO: measure in viewport
+
+# Liquid that appears in the pot once a pour has counted, so the operator sees it from
+# the headset rather than in a terminal message. The prims are visual-only children of
+# the pot, so they move with it, and sizes are in the pot's unscaled frame (x1.5 in the
+# scene). The inner wall widens from 6.4 cm at the bottom (z 0.002) to 7.8 cm at the
+# rim; anything past it stays hidden inside the 8.1 cm outer shell. The layers stay
+# shallow (1.0 and 1.4 cm in the scene) so the meat pieces, about 2 cm tall, still
+# show. Keyed by ``checks.pot_liquid``.
+POT_LIQUID_BOTTOM = 0.003
+POT_LIQUID_RADIUS = 0.073
+POT_LIQUIDS = {
+    1: ("LiquidWater", (0.30, 0.60, 0.95), 0.0067),
+    2: ("LiquidSoup", (0.75, 0.15, 0.08), 0.0067),
+    3: ("LiquidStew", (0.78, 0.30, 0.12), 0.0093),
+}
 
 KITCHEN_CABINET_USD_PATH = str(SYNTHESIS_DIR / "kitchencabinet_01" / "model_Kitchencabinet.usd")
 KITCHEN_CABINET_SCALE = (1.0, 1.0, 1.0)
@@ -150,8 +182,34 @@ STOVE_KNOB_STATIC_FRICTION = 0.1
 STOVE_KNOB_DYNAMIC_FRICTION = 0.1
 STOVE_KNOB_DAMPING = 0.1
 # Rotation (rad) from the knob's init pose that counts as "stove on".
-# ~45 deg; the knob can travel a full 180 deg.
 STOVE_KNOB_ON_DISP = math.radians(45.0)
+# The knobs travel 180 deg in the USD. They stop just past "on" instead, so an operator
+# can feel when it is done and turning one to its stop always counts.
+STOVE_KNOB_STOP = math.radians(48.0)
+# Stove-LOCAL position of the left knob, measured in the scene like the burner offset.
+STOVE_LEFT_KNOB_LOCAL_OFFSET = (-0.073, -0.152, 0.0)
+
+# Green marks showing which burner and knob count. Both lie on the stove's plate, whose
+# top is this far above the stove root. The burner's is as wide as the plate allows, so
+# it shows around the burner's own ring.
+STOVE_PLATE_HEIGHT = 0.0217
+BURNER_MARK_RADIUS = 0.145
+KNOB_MARK_RADIUS = 0.045
+
+# The burner lights once the green knob is past "on". A ring of blue flames rises from
+# the burner crown (top 6.6-7.1 cm above the stove root, rim radius about 8.7 cm) to
+# just under a pot on the grate (10.5 cm). From the operator's height a pot hides them,
+# so the green ring around the burner also glows orange. Visual only.
+FLAME_BASE_HEIGHT = 0.066
+FLAME_RING_RADIUS = 0.08
+FLAME_COUNT = 16
+FLAME_RADIUS = 0.008
+FLAME_HEIGHT = 0.03
+FLAME_COLOR = (0.25, 0.45, 1.0)
+BURNER_GLOW_COLOR = (1.0, 0.3, 0.05)
+
+# Height of the counter's surface, where objects actually rest.
+COUNTER_SURFACE_Z = CABINET_COUNTER_LOCAL_ORIGIN[2] + STOVE_OFFSET_FROM_COUNTER[2]
 
 # Vertical lift of the pour-goal indicator above the pot's root (so the
 # green sphere sits over the pot's mouth, not its base).
@@ -166,7 +224,12 @@ POUR_GOAL_Z_ABOVE_POT = 0.15
 # reach. z keeps the bottle's flush-on-counter value. See
 # ``BOWL_POTATO_OFFSET_FROM_COUNTER`` below for the matching xy.
 BOTTLE_OFFSET_FROM_COUNTER = (-1.0, -0.8, -0.05)
-POT_OFFSET_FROM_COUNTER = (-2.4, -0.7, -0.07)
+# The pot starts left of the stove, on the ingredients' side, at world (0.06, 0.34). At
+# its old spot, world (-0.1, -0.8), the operator had to step sideways, which pauses an
+# Apple Vision Pro session. It clears the stove's edge (y 0.168) by 4.5 cm and the meat
+# bowl by 6.8 cm. Its handle passes 5 cm above the bowl's rim and ends near world
+# (-0.31, 0.18), about 8 cm from the hand's starting thumb.
+POT_OFFSET_FROM_COUNTER = (-1.26, -0.86, -0.07)
 
 # ---- Tomato soup can (second pour object) ----
 # Same asset and pour configuration as ``pour_can_cfg``. It deliberately
@@ -459,6 +522,51 @@ def spawn_synthesis_rigid_preserve_collision(prim_path, cfg, *args, **kwargs):
     return prim
 
 
+@clone
+def spawn_flame_ring(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """A ring of small blue flame cones around the prim's origin, pointing up."""
+    from isaaclab.sim.spawners.shapes.shapes import spawn_cone
+    from isaaclab.sim.utils.prims import create_prim
+
+    prim = create_prim(prim_path, prim_type="Xform", translation=translation, orientation=orientation)
+    flame = sim_utils.ConeCfg(
+        radius=FLAME_RADIUS,
+        height=FLAME_HEIGHT,
+        axis="Z",
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=FLAME_COLOR, emissive_color=FLAME_COLOR),
+    )
+    for index in range(FLAME_COUNT):
+        angle = 2.0 * math.pi * index / FLAME_COUNT
+        offset = (FLAME_RING_RADIUS * math.cos(angle), FLAME_RING_RADIUS * math.sin(angle), 0.5 * FLAME_HEIGHT)
+        spawn_cone(f"{prim_path}/Flame{index}", flame, translation=offset)
+    return prim
+
+
+def _burner_lit_cfgs(burner_xy: tuple[float, float], stove_z: float) -> dict[str, AssetBaseCfg]:
+    """Hidden flames and glow for the marked burner; shown while its knob is on."""
+    glow_z = stove_z + STOVE_PLATE_HEIGHT + GOAL_MARK_THICKNESS * 2.0  # just above the green mark
+    return {
+        "burner_flame": AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/BurnerFlame",
+            spawn=SpawnerCfg(func=spawn_flame_ring, visible=False),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(*burner_xy, stove_z + FLAME_BASE_HEIGHT)),
+        ),
+        "burner_glow": AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/BurnerGlow",
+            spawn=sim_utils.CylinderCfg(
+                radius=BURNER_MARK_RADIUS,
+                height=GOAL_MARK_THICKNESS,
+                axis="Z",
+                visible=False,
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=BURNER_GLOW_COLOR, emissive_color=BURNER_GLOW_COLOR
+                ),
+            ),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(*burner_xy, glow_z)),
+        ),
+    }
+
+
 def _build_stove_cfg(
     *,
     scale: tuple[float, float, float],
@@ -567,235 +675,48 @@ POT_CFG = RigidObjectCfg(
 )
 
 
-def _pour_gate_for_object(
-    obj: RigidObject,
-    pot: RigidObject,
-    *,
-    min_lift_height: float,
-    tilt_threshold_rad: float,
-    tilt_axis_local: tuple[float, float, float],
-    world_axis: tuple[float, float, float],
-    spout_local_offset: tuple[float, float, float],
-    goal_xy_threshold: float,
-    device: torch.device,
-    num_envs: int,
-) -> torch.Tensor:
-    """Per-object pour gate: lift + tilt + spout-over-pot.
-
-    Shared by every pour object via :func:`_stage_pour_object` so the
-    bottle, the can, and any future pour object all use exactly the same
-    success criterion (and any tuning happens in one place).
-    """
-    # Same convention as ``mdp.utils.root_height_delta``: env grids are
-    # horizontal so z is identical in env-local and world frames -- no
-    # need to add env_origins for the lift delta.
-    lifted = (obj.data.root_pos_w[:, 2] - obj.data.default_root_state[:, 2]) >= min_lift_height
-
-    tilt = axis_tilt_angle(
-        obj.data.root_quat_w,
-        axis_local=tilt_axis_local,
-        world_axis=world_axis,
-    )
-    tilted = tilt >= tilt_threshold_rad
-
-    spout_local = torch.tensor(spout_local_offset, device=device, dtype=torch.float32).unsqueeze(0).expand(num_envs, -1)
-    spout_w = obj.data.root_pos_w + quat_apply(obj.data.root_quat_w, spout_local)
-    d_spout = spout_w[:, :2] - pot.data.root_pos_w[:, :2]
-    spout_over_pot = d_spout.pow(2).sum(dim=-1) <= float(goal_xy_threshold) ** 2
-
-    return lifted & tilted & spout_over_pot
-
-
-def _ingredient_in_pot_gate(
-    ingredient: RigidObject,
-    pot: RigidObject,
-    *,
-    zone_center_pot_local: tuple[float, float, float],
-    zone_radius: float,
-    zone_half_height: float,
-    device: torch.device,
-    num_envs: int,
-) -> torch.Tensor:
-    """Return True per env if the ingredient's root is inside a cylinder
-    fixed in the pot's local frame.
-
-    The zone is described in pot-LOCAL coordinates (it tracks the pot's
-    pose, so moving / tilting the pot moves the acceptance region with
-    it). Inversely-shaped vs. a forbidden zone: the ingredient must lie
-    INSIDE for the gate to fire. Same shape encoding as
-    ``ForbiddenZone(kind="cylinder", ...)``.
-    """
-    rel_world = ingredient.data.root_pos_w - pot.data.root_pos_w
-    rel_pot_local = quat_apply_inverse(pot.data.root_quat_w, rel_world)
-    center_t = torch.tensor(zone_center_pot_local, device=device, dtype=torch.float32).unsqueeze(0).expand(num_envs, -1)
-    rel_zone = rel_pot_local - center_t
-    xy_inside = rel_zone[:, :2].pow(2).sum(dim=-1) <= float(zone_radius) ** 2
-    z_inside = rel_zone[:, 2].abs() <= float(zone_half_height)
-    return xy_inside & z_inside
-
-
 # Stage-graph key for the cook-foods long-horizon success machine. The graph
 # itself is (re)registered per cfg instance in ``__post_init__`` (override=True)
 # so the per-instance threshold fields below feed the stage predicates.
 COOK_FOODS_STAGE_GRAPH_KEY = "long_horizon.cook_foods"
 
 
-def _pot_on_stove_gate(
-    env: ManagerBasedRLEnv,
-    *,
-    stove_cfg: SceneEntityCfg,
-    pot_cfg: SceneEntityCfg,
-    pot_on_stove_local_offset: tuple[float, float, float],
-    pot_xy_threshold: float,
-    pot_flat_threshold_rad: float,
-) -> torch.Tensor:
-    """Live gate: pot xy on the burner AND pot lying roughly flat.
+def _pot_liquid_cfg(name: str, color: tuple[float, float, float], top: float) -> AssetBaseCfg:
+    height = top - POT_LIQUID_BOTTOM
+    return AssetBaseCfg(
+        prim_path=f"{{ENV_REGEX_NS}}/Pot/{name}",
+        spawn=sim_utils.CylinderCfg(
+            radius=POT_LIQUID_RADIUS,
+            height=height,
+            axis="Z",
+            visible=False,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=color),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, POT_LIQUID_BOTTOM + 0.5 * height)),
+    )
 
-    Burner xy = ``stove.root_pos_w + R(stove.root_quat_w) * offset`` so it
-    tracks the stove's live world pose.
+
+POT_LIQUID_PRIMS = {code: (f"Pot/{name}",) for code, (name, _, _) in POT_LIQUIDS.items()}
+BURNER_LIT_PRIMS = {1: ("BurnerFlame", "BurnerGlow")}
+
+
+def cook_foods_success(env, task_key: str, ready: dict) -> torch.Tensor:
+    """Every stage done, and the finished state still true right now.
+
+    The stage flags latch. Checking the end state live as well makes the consecutive
+    steps counted by ``--num_success_steps`` mean something.
     """
-    pot: RigidObject = env.scene[pot_cfg.name]
-    stove = env.scene[stove_cfg.name]
-    device = env.device
-    num_envs = env.num_envs
-
-    burner_local = (
-        torch.tensor(pot_on_stove_local_offset, device=device, dtype=torch.float32).unsqueeze(0).expand(num_envs, -1)
-    )
-    burner_w = stove.data.root_pos_w + quat_apply(stove.data.root_quat_w, burner_local)
-    d_pot = pot.data.root_pos_w[:, :2] - burner_w[:, :2]
-    pot_at_burner = d_pot.pow(2).sum(dim=-1) <= float(pot_xy_threshold) ** 2
-
-    pot_tilt = axis_tilt_angle(
-        pot.data.root_quat_w,
-        axis_local=(0.0, 0.0, 1.0),
-        world_axis=(0.0, 0.0, 1.0),
-    )
-    pot_flat = pot_tilt <= pot_flat_threshold_rad
-    return pot_at_burner & pot_flat
-
-
-def _ingredients_in_pot_gate(
-    env: ManagerBasedRLEnv,
-    *,
-    pot_cfg: SceneEntityCfg,
-    ingredient_cfgs: list[SceneEntityCfg],
-    zone_center: tuple[float, float, float],
-    zone_radius: float,
-    zone_half_height: float,
-) -> torch.Tensor:
-    """Live gate: every ingredient piece inside the pot's interior cylinder."""
-    pot: RigidObject = env.scene[pot_cfg.name]
-    device = env.device
-    num_envs = env.num_envs
-
-    ok: torch.Tensor | None = None
-    for ing_cfg in ingredient_cfgs:
-        ingredient: RigidObject = env.scene[ing_cfg.name]
-        gate = _ingredient_in_pot_gate(
-            ingredient,
-            pot,
-            zone_center_pot_local=zone_center,
-            zone_radius=zone_radius,
-            zone_half_height=zone_half_height,
-            device=device,
-            num_envs=num_envs,
-        )
-        ok = gate if ok is None else (ok & gate)
-    if ok is None:
-        # No ingredients configured -- treat as satisfied.
-        ok = torch.ones(num_envs, dtype=torch.bool, device=device)
-    return ok
-
-
-def _stage_pour_object(
-    env: ManagerBasedRLEnv,
-    *,
-    pour_cfg: SceneEntityCfg,
-    pot_cfg: SceneEntityCfg,
-    min_lift_height: float,
-    tilt_threshold_rad: float,
-    tilt_axis_local: tuple[float, float, float],
-    world_axis: tuple[float, float, float],
-    spout_local_offset: tuple[float, float, float],
-    goal_xy_threshold: float,
-) -> torch.Tensor:
-    """Stage predicate for a single pour object (lift + tilt + spout-over-pot).
-
-    Used as a *latched* stage in the cook-foods graph, so the transient act
-    of pouring only has to happen once during the episode.
-    """
-    obj: RigidObject = env.scene[pour_cfg.name]
-    pot: RigidObject = env.scene[pot_cfg.name]
-    return _pour_gate_for_object(
-        obj,
-        pot,
-        min_lift_height=min_lift_height,
-        tilt_threshold_rad=tilt_threshold_rad,
-        tilt_axis_local=tilt_axis_local,
-        world_axis=world_axis,
-        spout_local_offset=spout_local_offset,
-        goal_xy_threshold=goal_xy_threshold,
-        device=env.device,
-        num_envs=env.num_envs,
-    )
-
-
-def _stage_turn_on_stove(
-    env: ManagerBasedRLEnv,
-    *,
-    stove_cfg: SceneEntityCfg,
-    pot_cfg: SceneEntityCfg,
-    ingredient_cfgs: list[SceneEntityCfg],
-    knob_asset_cfg: SceneEntityCfg,
-    knob_threshold_rad: float,
-    pot_on_stove_local_offset: tuple[float, float, float],
-    pot_xy_threshold: float,
-    pot_flat_threshold_rad: float,
-    pot_interior_zone_center: tuple[float, float, float],
-    pot_interior_zone_radius: float,
-    pot_interior_zone_half_height: float,
-) -> torch.Tensor:
-    """Terminal stage predicate: stove turned on with pot + ingredients still set.
-
-    Returns (per env) the AND of three *live* conditions, evaluated every
-    step:
-      - the (left) stove knob in ``knob_asset_cfg`` rotated
-        >= ``knob_threshold_rad`` from init,
-      - the pot is currently on the burner and flat,
-      - every ingredient is currently inside the pot.
-
-    The pour prerequisites are NOT checked here -- they are wired as latched
-    ``deps`` of this stage in the graph, so this fires only once both pours
-    have already happened ("stove on last"). Because the graph is evaluated
-    with ``persistent=True``, the latched pour flags gate this terminal stage
-    while pot/ingredients stay live.
-    """
-    knob_on = mdp.joint_relative_move(
-        env,
-        threshold=knob_threshold_rad,
-        asset_cfg=knob_asset_cfg,
-        mode="displacement",
-        op=">=",
-        reduce="any",
-    )
-    pot_ok = _pot_on_stove_gate(
-        env,
-        stove_cfg=stove_cfg,
-        pot_cfg=pot_cfg,
-        pot_on_stove_local_offset=pot_on_stove_local_offset,
-        pot_xy_threshold=pot_xy_threshold,
-        pot_flat_threshold_rad=pot_flat_threshold_rad,
-    )
-    ingredients_ok = _ingredients_in_pot_gate(
-        env,
-        pot_cfg=pot_cfg,
-        ingredient_cfgs=ingredient_cfgs,
-        zone_center=pot_interior_zone_center,
-        zone_radius=pot_interior_zone_radius,
-        zone_half_height=pot_interior_zone_half_height,
-    )
-    return knob_on & pot_ok & ingredients_ok
+    stages_done = mdp.stage_success(env, task_key=task_key, persistent=True)
+    finished_now = stove_on_and_pot_ready(env, **ready)
+    flags = mdp.evaluate_stage_graph(env, task_key=task_key, persistent=True)
+    pours = (("pour_water", "water"), ("pour_can", "can"))
+    missing_pours = [label for stage, label in pours if not bool(flags[stage][0])]
+    report_status(env, ~(stages_done & finished_now), missing_pours, **ready)
+    spilled = ever_held(env, "spill", stages_done)
+    show_by_state(env, "liquid", POT_LIQUID_PRIMS, pot_liquid(flags["pour_water"], flags["pour_can"], spilled))
+    lit = knob_angle(env, ready["knob_joint"]) >= ready["knob_threshold_rad"]
+    show_by_state(env, "burner", BURNER_LIT_PRIMS, lit.long())
+    return stages_done & finished_now
 
 
 @configclass
@@ -811,12 +732,12 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
       - ``pour_water`` / ``pour_can`` -- latched prerequisites (the transient
         pour only has to happen once during the episode),
       - ``turn_on_stove`` -- terminal stage that fires once both pours are
-        latched AND, *live* at that instant, a stove knob is turned, the pot
-        is on the burner, and every ingredient is inside the pot.
+        latched AND the knob is turned, the pot is on the burner, and every
+        ingredient is inside the pot.
 
-    The four prerequisites have no ordering among themselves; turning on the
-    stove is always the last step. The pour goal indicator is slaved to the
-    pot, so moving the pot first is the natural way to make the pour usable.
+    Success also needs that end state to be true right now, so it can be lost
+    again. The prerequisites have no ordering among themselves; turning on the
+    stove is always the last step.
     """
 
     # ---- Pour object: small water bottle ----
@@ -858,7 +779,7 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
     # (via ``common_pour_params`` in ``__post_init__``), so both the bottle
     # and the can see the same lift / tilt / spout-over-pot thresholds.
     pour_lift_height: float = 0.10
-    pour_angle_rad: float = POUR_ANGLE_RAD
+    pour_angle_rad: float = POUR_TILT_RAD
     pour_axis_local: tuple[float, float, float] = BOTTLE_POUR_AXIS_LOCAL
     pour_world_axis: tuple[float, float, float] = (0.0, 0.0, 1.0)
     pour_tilt_ge: bool = True
@@ -896,11 +817,6 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
     pot_reset_x_range: tuple[float, float] = (0.0, 0.0)
     pot_reset_y_range: tuple[float, float] = (0.0, 0.0)
     pot_min_bottle_distance: float = 0.15
-    # XY tolerance (m) for "pot is on the burner". Tighten for stricter
-    # placement, loosen if the pot rim is large.
-    pot_xy_threshold: float = 0.08
-    # Maximum tilt of pot local +Z from world +Z to count as flat.
-    pot_flat_threshold_rad: float = math.radians(15)
 
     # ---- Pot interior zone ("ingredients must end up inside the pot") ----
     # Cylinder anchored in the pot's local frame; the success function
@@ -942,6 +858,8 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
     pour_goal_z_above_pot: float = POUR_GOAL_Z_ABOVE_POT
     # Knob rotation (rad) from init that counts as "stove on" (final step).
     stove_knob_on_disp: float = STOVE_KNOB_ON_DISP
+    # Where the knobs physically stop; must be past ``stove_knob_on_disp``.
+    stove_knob_stop: float = STOVE_KNOB_STOP
     # Per-reset stove randomization (offsets from spawn pose). Defaults to
     # fixed; widen if you want the burner location to move across episodes.
     stove_reset_x_range: tuple[float, float] = (0.0, 0.0)
@@ -961,6 +879,9 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
 
     def __post_init__(self):
         super().__post_init__()
+
+        tune_hand_for_carrying(self)
+        tune_wrist_camera_bodies(self)
 
         self.terminations.object_out_of_bound = None
 
@@ -1022,6 +943,24 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
             init_pos=stove_pos,
         )
 
+        # ---- Marks showing which burner and knob count ----
+        # Fixed in place, so they would not follow the stove if its reset ranges
+        # are ever widened.
+        def _on_stove_plate(local_offset: tuple[float, float, float]) -> tuple[float, float, float]:
+            rot = torch.tensor([self.stove_init_rot], dtype=torch.float32)
+            offset = quat_apply(rot, torch.tensor([local_offset], dtype=torch.float32))[0]
+            return (stove_pos[0] + float(offset[0]), stove_pos[1] + float(offset[1]), stove_pos[2] + STOVE_PLATE_HEIGHT)
+
+        self.scene.burner_mark = goal_mark_cfg(
+            "BurnerMark", BURNER_MARK_RADIUS, _on_stove_plate(self.pot_on_stove_local_offset)
+        )
+        self.scene.knob_mark = goal_mark_cfg(
+            "KnobMark", KNOB_MARK_RADIUS, _on_stove_plate(STOVE_LEFT_KNOB_LOCAL_OFFSET)
+        )
+        burner = _on_stove_plate(self.pot_on_stove_local_offset)
+        for name, lit_cfg in _burner_lit_cfgs((burner[0], burner[1]), stove_pos[2]).items():
+            setattr(self.scene, name, lit_cfg)
+
         # ---- Bottle (object) init pose on the visible cabinet counter ----
         # The base class places the bottle relative to the (invisible)
         # cuboid table; we override here with a cabinet-relative spawn.
@@ -1044,6 +983,9 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
         self.scene.pot.spawn.scale = self.pot_scale
         if self.scene.pot.spawn.mass_props is not None:
             self.scene.pot.spawn.mass_props.mass = self.pot_mass
+        # After the pot, so the pot prim exists to hold them.
+        for name, color, top in POT_LIQUIDS.values():
+            setattr(self.scene, f"pot_{name.lower()}", _pot_liquid_cfg(name, color, top))
 
         # ---- Tomato soup can (second pour object) ----
         # Cabinet-relative placement so the can tracks the cabinet just
@@ -1139,6 +1081,29 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
                 )
                 piece_cfg.init_state.pos = piece_world
                 setattr(self.scene, f"{spec.name}_{i}", piece_cfg)
+
+        # ---- Grip and knob stops ----
+        # On reset, not startup: record_demos.py restarts the physics scene on every
+        # reset, which silently restores what the assets author. Meat and bowl keep
+        # their own materials, so the pieces still slide out of the bowl when tipped.
+        self.events.robot_physics_material = grip_material_event("robot")
+        self.events.bottle_physics_material = grip_material_event("object")
+        self.events.can_physics_material = grip_material_event("can")
+        self.events.pot_physics_material = grip_material_event("pot")
+        for index, joint in enumerate(STOVE_KNOB_JOINTS):
+            setattr(
+                self.events,
+                f"limit_knob_{index}_travel",
+                EventTerm(
+                    func=mdp.events.set_joint_position_limits,
+                    mode="reset",
+                    params={
+                        "asset_cfg": SceneEntityCfg("stove", joint_names=[joint]),
+                        "lower": 0.0,
+                        "upper": self.stove_knob_stop,
+                    },
+                ),
+            )
 
         # ---- Reset events ----
         # Required ordering (event manager iterates dict insertion order):
@@ -1273,68 +1238,58 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
                 )
 
         # ---- Long-horizon success: latched stage graph ----
-        # Four prerequisites (any order, "can happen simultaneously"):
-        #   pour_water, pour_can  -- LATCHED (the transient pour only has to
-        #                            happen once during the episode), and
-        #   pot-on-stove, ingredients-in-pot -- checked LIVE inside the
-        #                            terminal stage.
-        # The terminal ``turn_on_stove`` stage fires only once both pours are
-        # latched (its deps) AND the knob is turned with the pot + ingredients
-        # still in place -- i.e. turning on the stove is the last step.
-        # The ingredient list is built from the bowl specs so adding a bowl
-        # spec automatically expands the required ingredients.
-        ingredient_cfgs = [
-            SceneEntityCfg(f"{spec.name}_{i}")
+        # The pours latch: each only has to happen once, in any order. Turning on the
+        # stove is the last step, and needs the pot and meat in place at that moment.
+        # The ingredient list is built from the bowl specs so adding a bowl spec
+        # automatically expands the required ingredients.
+        ingredient_names = tuple(
+            f"{spec.name}_{i}"
             for spec in self.bowl_ingredient_specs
             for i in range(min(spec.num_ingredients, len(spec.ingredient_xy_offsets)))
-        ]
-        pour_goal_xy = self.pour_goal_xy_threshold if self.pour_goal_xy_threshold is not None else 1e6
+        )
         shared_pour_params = {
-            "pot_cfg": SceneEntityCfg("pot"),
-            "min_lift_height": self.pour_lift_height,
-            "tilt_threshold_rad": self.pour_angle_rad,
-            "world_axis": self.pour_world_axis,
-            "goal_xy_threshold": pour_goal_xy,
+            "min_lift": self.pour_lift_height,
+            "tilt_rad": self.pour_angle_rad,
+            "xy_tol": self.pour_goal_xy_threshold,
+        }
+        ready = {
+            "burner_local": self.pot_on_stove_local_offset,
+            "knob_joint": STOVE_LEFT_KNOB_JOINT,
+            "knob_threshold_rad": self.stove_knob_on_disp,
+            "ingredient_names": ingredient_names,
+            "zone_center": self.pot_interior_zone_center,
+            "zone_radius": self.pot_interior_zone_radius,
+            "zone_half_height": self.pot_interior_zone_half_height,
+            "pour_names": ("object", "can"),
         }
         cook_foods_stage_graph = mdp.StageGraphSpec(
             stages=(
                 mdp.StageSpec(
                     name="pour_water",
-                    func=_stage_pour_object,
+                    func=poured_into_pot,
                     params={
-                        # the bottle (inherited pour-template ``object``)
-                        "pour_cfg": SceneEntityCfg("object"),
+                        "pour_name": "object",  # the bottle (inherited pour-template ``object``)
+                        "label": "Water",
                         "tilt_axis_local": self.pour_axis_local,
-                        "spout_local_offset": self.pour_goal_object_local_offset,
+                        "spout_local": self.pour_goal_object_local_offset,
                         **shared_pour_params,
                     },
                 ),
                 mdp.StageSpec(
                     name="pour_can",
-                    func=_stage_pour_object,
+                    func=poured_into_pot,
                     params={
-                        "pour_cfg": SceneEntityCfg("can"),  # the tomato soup can
+                        "pour_name": "can",  # the tomato soup can
+                        "label": "Can",
                         "tilt_axis_local": self.can_pour_axis_local,
-                        "spout_local_offset": self.can_pour_goal_object_local_offset,
+                        "spout_local": self.can_pour_goal_object_local_offset,
                         **shared_pour_params,
                     },
                 ),
                 mdp.StageSpec(
                     name="turn_on_stove",
-                    func=_stage_turn_on_stove,
-                    params={
-                        "stove_cfg": SceneEntityCfg("stove"),
-                        "pot_cfg": SceneEntityCfg("pot"),
-                        "ingredient_cfgs": ingredient_cfgs,
-                        "knob_asset_cfg": SceneEntityCfg("stove", joint_names=[STOVE_LEFT_KNOB_JOINT]),
-                        "knob_threshold_rad": self.stove_knob_on_disp,
-                        "pot_on_stove_local_offset": self.pot_on_stove_local_offset,
-                        "pot_xy_threshold": self.pot_xy_threshold,
-                        "pot_flat_threshold_rad": self.pot_flat_threshold_rad,
-                        "pot_interior_zone_center": self.pot_interior_zone_center,
-                        "pot_interior_zone_radius": self.pot_interior_zone_radius,
-                        "pot_interior_zone_half_height": self.pot_interior_zone_half_height,
-                    },
+                    func=stove_on_and_pot_ready,
+                    params=ready,
                     deps=("pour_water", "pour_can"),
                 ),
             ),
@@ -1343,9 +1298,16 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
             success_mode="substage",
         )
         mdp.register_stage_graph(COOK_FOODS_STAGE_GRAPH_KEY, cook_foods_stage_graph, override=True)
+        # No observation here evaluates the stage graph as an episode restarts, so one
+        # attempt's pours would otherwise still count in the next.
+        self.events.clear_stage_latches = EventTerm(
+            func=clear_stage_latches,
+            mode="reset",
+            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY},
+        )
         self.terminations.success = DoneTerm(
-            func=mdp.stage_success,
-            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY, "persistent": True},
+            func=cook_foods_success,
+            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY, "ready": ready},
         )
 
         # Pull the wrist forward so the visible counter sits in the natural
@@ -1362,3 +1324,4 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
             anchor_rot=DEFAULT_FLOATING_SHADOW_XR_CFG.anchor_rot,
         )
         align_retargeter_wrist_origin_to_init(self)
+        tune_teleop_for_carrying(self, surface_z=COUNTER_SURFACE_Z)

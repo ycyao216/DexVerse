@@ -247,6 +247,7 @@ def test_original_task_and_robot_sources_are_preserved():
     # Corrected in place, and labelled from LONG_HORIZON_SIM_FIX_REVISIONS by task_identity().
     corrected_in_place = {
         "source/dexverse/dexverse/tasks/config/long_horizon/make_coffee/long_horizon_make_coffee_cfg.py",
+        "source/dexverse/dexverse/tasks/config/long_horizon/cook_foods/long_horizon_cook_foods_cfg.py",
     }
     for path in paths:
         if path in corrected_in_place:

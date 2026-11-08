@@ -23,6 +23,7 @@ PUSH_T_RODS_REVISION = "push-t-goal-rods-15cm-v1-2026-09-10"
 # Per task, so changing one task does not invalidate another task's recordings.
 LONG_HORIZON_SIM_FIX_REVISIONS = {
     "Dexverse-LongHorizon-MakeCoffee-v0": "long-horizon-sim-fixes-v0-2026-11-07",
+    "Dexverse-LongHorizon-CookFoods-v0": "long-horizon-cook-foods-fixes-v0-2026-11-07b",
 }
 
 BASELINE_TASKS = (
