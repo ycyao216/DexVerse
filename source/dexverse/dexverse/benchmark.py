@@ -5,8 +5,10 @@
 
 """Simulator-independent identity of the task-upgrade development suite.
 
-The original 100 v0 registrations remain unchanged. Twenty baseline families
-also have a v1 implementation, selected by an explicit Gym version suffix.
+The original 100 v0 registrations remain unchanged, except for the long-horizon
+tasks in ``LONG_HORIZON_SIM_FIX_REVISIONS``, whose physics, teleop and success checks
+were corrected in place under a new revision. Twenty baseline families also have a
+v1 implementation, selected by an explicit Gym version suffix.
 """
 
 V0_BENCHMARK_REVISION = "official-v0-30cc673"
@@ -18,6 +20,10 @@ DOOR_LATCH_REVISION = "door-cutaway-auto-latch-v1-2026-09-08"
 CUP_RACK_SMALL_DESTINATION_REVISION = "cup-rack-15cm-destination-v1-2026-09-09"
 DISPENSER_SMALL_CUP_REVISION = "dispenser-small-cup-v1-2026-09-09"
 PUSH_T_RODS_REVISION = "push-t-goal-rods-15cm-v1-2026-09-10"
+# Per task, so changing one task does not invalidate another task's recordings.
+LONG_HORIZON_SIM_FIX_REVISIONS = {
+    "Dexverse-LongHorizon-MakeCoffee-v0": "long-horizon-sim-fixes-v0-2026-11-07",
+}
 
 BASELINE_TASKS = (
     "Dexverse-GraspBleach-v0",
@@ -116,6 +122,9 @@ def task_identity(task: str) -> dict:
             "benchmark_revision": BENCHMARK_REVISION,
             "task_source_revision": TASK_SOURCE_REVISION,
         }
+    if task in LONG_HORIZON_SIM_FIX_REVISIONS:
+        return {"task_version": 0, "benchmark_revision": LONG_HORIZON_SIM_FIX_REVISIONS[task],
+                "task_source_revision": "local-long-horizon-sim-fixes"}
     if task in LEGACY_UPGRADE_TASKS or not task.startswith("Dexverse-") or not task.endswith("-v0"):
         raise ValueError(f"Unknown canonical task identity: {task}")
     return {"task_version": 0, "benchmark_revision": V0_BENCHMARK_REVISION, "task_source_revision": V0_SOURCE_REVISION}

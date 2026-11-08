@@ -12,12 +12,13 @@ a (fixed-base) espresso machine also sit on the table. Grasping the mug off the
 holder is an implicit prerequisite the policy must perform, but only the
 coffee-making sub-sequence drives the success criteria::
 
-    1. pour_milk          -- tilt the milk bottle over the mug (spout reaches it)
-    2. place_on_machine   -- set the mug under the coffee machine's group head
+    1. pour_milk          -- hold the tipped bottle's spout over the upright mug
+    2. place_on_machine   -- carry the mug unspilled to the machine's tray, let go
     3. rotate_knob        -- turn the machine's switch lever (start "brewing")
 
-Success is driven by a strict, persistent :class:`mdp.StageGraphSpec`; the
-terminal stage is ``rotate_knob``.
+Stages latch through a strict, persistent :class:`mdp.StageGraphSpec`. Success also
+needs the lever turned and the mug on the tray at that moment, so it can be lost
+again if the mug gets knocked. See ``checks.py`` for what each stage verifies.
 
 Asset notes
 ~~~~~~~~~~~
@@ -38,7 +39,7 @@ Asset notes
   graspable rigid object (``scene.milk``, ~20 cm tall). It authors its rigid
   body on a child link, so :func:`ensure_single_rigid_body` collapses it too.
   "Pour" = tilt it past ``POUR_TILT_RAD`` about its up-axis with its top spout
-  over the mug (see :func:`milk_poured_over_mug`), mirroring grasp_kettle_cfg.
+  above the mug's mouth (see :func:`checks.milk_poured_over_mug`).
 - Coffee machine (``synthesis/coffee_machine001/model_coffee_machine_6.usd``) is
   a clean single-articulation-root asset (root body ``E_body_3``). Its front
   (steam wand / portafilter / switch / buttons) is local -Y; we yaw it -90 deg
@@ -58,9 +59,10 @@ import math
 import isaaclab.sim as sim_utils
 import torch
 from dexverse.assets import DEXVERSE_AUTHORED_ASSETS_DIR, SYNTHESIS_DIR
+from dexverse.robot_agents.shadow.floating import FLOATING_SHADOW_RIGHT_FINGERTIP_BODY_NAMES
 from dexverse.tasks.config.bimanual.usd_helpers import ensure_single_rigid_body
 from isaaclab.actuators import ImplicitActuatorCfg
-from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -70,14 +72,26 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.sensors import ContactSensorCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import quat_apply
 from isaaclab.utils.noise import UniformNoiseCfg as Unoise
 from scipy.spatial.transform import Rotation as R
 
 from .... import dexverse_base_env_cfg as dexverse_base_env
 from .... import mdp
-from ....mdp.utils import axis_tilt_angle
 from ...floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG, setup_floating_teleop
+from ..handling import (
+    grip_material_event,
+    tune_hand_for_carrying,
+    tune_teleop_for_carrying,
+    tune_wrist_camera_bodies,
+)
+from .checks import (
+    PLACE_MARK_RADIUS,
+    milk_poured_over_mug,
+    mug_placed_and_released,
+    mug_settled_on_tray,
+    report_lever_stage,
+    report_place_stage,
+)
 from .usd_prep import prepare_coffee_machine_usd
 
 # =====================================================================
@@ -164,7 +178,7 @@ COFFEE_INIT_ROT = (math.cos(-math.pi / 4), 0.0, 0.0, math.sin(-math.pi / 4))
 COFFEE_BODY = "E_body_3"  # articulation root body
 
 # Coffee-machine joints (verified from the USD).
-COFFEE_KNOB_JOINT = "RevoluteJoint_coffee_machine_6_up"  # switch lever, Y, +/-90 deg
+COFFEE_KNOB_JOINT = "RevoluteJoint_coffee_machine_6_up"  # switch lever, Y, +/-90 deg in the USD
 COFFEE_OTHER_JOINTS = [
     "RevoluteJoint_coffee_machine_6_right",  # steam wand (Z)
     "RevoluteJoint_coffee_machine_6_middle",  # portafilter (Z)
@@ -184,18 +198,28 @@ COFFEE_OTHER_DYNAMIC_FRICTION = 0.3
 COFFEE_OTHER_DAMPING = 1.0
 COFFEE_OTHER_ARMATURE = 0.005
 
-# Mug placement spot ON the machine, in the machine root (E_body_3) local frame:
-# under the group head / portafilter outlet, in front of the body face. The body
-# front face is at local y~-0.138 and the portafilter sticks out to y~-0.209, so a
-# mug placed a bit further forward (more -Y) rests on the table in front of the
-# body, under the spout. The y reach scales with the machine spawn scale (the
-# geometry scales with it). The mug's origin is at its BASE, so its resting root z
-# is the table top; the local z is chosen so the tracked target sits there (the yaw
-# about +Z does not change the world z of the offset). TUNE after previewing.
+# Mug placement spot ON the machine, in the machine root (E_body_3) local frame: on
+# the drip tray, midway under the portafilter's two outlets, which is where people set
+# the mug. The y reach scales with the machine spawn scale (the geometry scales with
+# it). The mug's origin is at its BASE, so the local z puts the target at the height a
+# mug's root rests at on the tray, measured from recorded demos (the yaw about +Z does
+# not change the world z of the offset).
+COFFEE_TRAY_REST_HEIGHT = 0.0855  # mug root above the table top when on the tray
 COFFEE_PLACE_LOCAL = (
     0.0,
-    -0.08 * COFFEE_SCALE_FACTOR,
-    TABLE_TOP_Z - COFFEE_Z + 0.1,
+    -0.054 * COFFEE_SCALE_FACTOR,
+    TABLE_TOP_Z - COFFEE_Z + COFFEE_TRAY_REST_HEIGHT,
+)
+
+
+# The visible mark at that spot. The machine's -90 deg yaw maps local (x, y) to world
+# (y, -x) offsets from its centre. Its top is level with the base of a mug resting there.
+PLACE_MARK_THICKNESS = 0.002
+PLACE_MARK_COLOR = (0.1, 0.85, 0.3)
+PLACE_MARK_POS = (
+    COFFEE_CENTER_X + COFFEE_PLACE_LOCAL[1],
+    COFFEE_CENTER_Y - COFFEE_PLACE_LOCAL[0],
+    TABLE_TOP_Z + COFFEE_TRAY_REST_HEIGHT - 0.5 * PLACE_MARK_THICKNESS,
 )
 
 
@@ -217,17 +241,9 @@ TABLE_GOAL_Z = TABLE_TOP_Z
 GRASP_MUG_LIFT_MIN = 0.01  # mug lifted >= 1 cm above its holder height
 PLACE_TABLE_POS_TOL = 0.06  # mug within 6 cm of the table goal ...
 PLACE_TABLE_MAX_TILT = math.radians(20.0)  # ... and roughly upright
-POUR_TILT_RAD = math.radians(70.0)  # milk tilted >= 70 deg from upright
-PLACE_MACHINE_XY_TOL = 0.09  # mug within this horizontal dist of the spot
-PLACE_MACHINE_Z_TOL = 0.07  # ... and within this vertical band of it
 KNOB_ROTATE_DISP = math.radians(35.0)  # switch lever turned >= 35 deg from rest
-
-# Pour proximity is a pair of spheres (cx, cy, cz, radius) in each asset's LOCAL
-# frame; the pour "reaches" when their world centres are within (sum of radii).
-#   * MUG_GOAL_ZONE  : the pour goal, on top of the mug (rim ~ local z 0.10).
-#   * MILK_SPOUT_ZONE: the point to reach with it, at the milk bottle's lip.
-MUG_GOAL_ZONE = (0.0, 0.0, 0.10, 0.04)
-MILK_SPOUT_ZONE = (0.0, 0.0, 0.18, 0.03)
+# The lever stops just past that in either direction, so pushing it to its stop always counts.
+KNOB_STOP_RAD = math.radians(38.0)
 
 LONG_HORIZON_STAGE_GRAPH_KEY = "long_horizon.make_coffee"
 
@@ -240,59 +256,33 @@ BOUND_Z_MAX = 1.6
 # =====================================================================
 
 
-def milk_poured_over_mug(
-    env,
-    tilt_rad: float = POUR_TILT_RAD,
-    spout_zone: tuple[float, float, float, float] = MILK_SPOUT_ZONE,
-    goal_zone: tuple[float, float, float, float] = MUG_GOAL_ZONE,
-) -> torch.Tensor:
-    """True per-env when the milk bottle is tilted with its spout over the mug.
+def knob_turned_with_mug_on_tray(env, threshold_rad: float = KNOB_ROTATE_DISP) -> torch.Tensor:
+    """True per-env while the switch lever is turned and the mug still sits on the tray."""
+    knob = mdp.joint_relative_move(
+        env,
+        threshold=threshold_rad,
+        asset_cfg=SceneEntityCfg("coffee_machine", joint_names=[COFFEE_KNOB_JOINT]),
+        mode="displacement",
+        op=">=",
+        reduce="any",
+    )
+    return knob & mug_settled_on_tray(env, place_local=COFFEE_PLACE_LOCAL, machine_body=COFFEE_BODY)
 
-    Mirrors the kettle pour: the bottle's up-axis (local +Z) must tilt past
-    ``tilt_rad`` from world +Z, AND the milk spout sphere (``spout_zone`` on the
-    milk) must overlap the pour-goal sphere (``goal_zone`` on top of the mug) --
-    i.e. their world centres are within (spout radius + goal radius).
+
+def make_coffee_success(env, task_key: str, threshold_rad: float = KNOB_ROTATE_DISP) -> torch.Tensor:
+    """Every stage done in order, and the finished state still true right now.
+
+    The stage flags latch. Checking the end state live as well makes the consecutive
+    steps counted by ``--num_success_steps`` mean something.
     """
-    milk = env.scene["milk"]
-    mug = env.scene["object"]
-    milk_quat = milk.data.root_quat_w
-    mug_quat = mug.data.root_quat_w
-    tilt = axis_tilt_angle(milk_quat, axis_local=(0.0, 0.0, 1.0), world_axis=(0.0, 0.0, 1.0))
-    tilted = tilt >= tilt_rad
-
-    sx, sy, sz, sr = spout_zone
-    gx, gy, gz, gr = goal_zone
-    spout_off = torch.tensor((sx, sy, sz), device=env.device, dtype=milk_quat.dtype)
-    goal_off = torch.tensor((gx, gy, gz), device=env.device, dtype=mug_quat.dtype)
-    spout_w = milk.data.root_pos_w + quat_apply(milk_quat, spout_off.unsqueeze(0).expand(env.num_envs, -1))
-    goal_w = mug.data.root_pos_w + quat_apply(mug_quat, goal_off.unsqueeze(0).expand(env.num_envs, -1))
-    reached = torch.norm(spout_w - goal_w, dim=-1) <= (sr + gr)
-    return tilted & reached
-
-
-def mug_on_coffee_maker(
-    env,
-    xy_tol: float = PLACE_MACHINE_XY_TOL,
-    z_tol: float = PLACE_MACHINE_Z_TOL,
-    place_local: tuple[float, float, float] = COFFEE_PLACE_LOCAL,
-) -> torch.Tensor:
-    """True per-env when the mug rests at the machine's group-head spot.
-
-    The spot is a fixed point in the machine root body's frame, tracked live (so
-    it follows any machine pose jitter): the mug must be horizontally within
-    ``xy_tol`` and vertically within ``z_tol`` of it.
-    """
-    machine = env.scene["coffee_machine"]
-    mug = env.scene["object"]
-    body_ids, _ = machine.find_bodies(COFFEE_BODY)
-    body_pos = machine.data.body_pos_w[:, body_ids[0], :]
-    body_quat = machine.data.body_quat_w[:, body_ids[0], :]
-    offset = torch.tensor(place_local, device=env.device, dtype=body_quat.dtype)
-    target_w = body_pos + quat_apply(body_quat, offset.unsqueeze(0).expand(env.num_envs, -1))
-    mug_pos = mug.data.root_pos_w
-    horiz = torch.norm(mug_pos[:, :2] - target_w[:, :2], dim=-1) < xy_tol
-    vert = torch.abs(mug_pos[:, 2] - target_w[:, 2]) < z_tol
-    return horiz & vert
+    stages_done = mdp.stage_success(env, task_key=task_key, persistent=True)
+    finished_now = knob_turned_with_mug_on_tray(env, threshold_rad)
+    flags = mdp.evaluate_stage_graph(env, task_key=task_key, persistent=True)
+    poured, placed = flags["pour_milk"], flags["place_on_machine"]
+    tips = tuple(FLOATING_SHADOW_RIGHT_FINGERTIP_BODY_NAMES)
+    report_place_stage(env, poured & ~placed, COFFEE_PLACE_LOCAL, COFFEE_BODY, tips)
+    report_lever_stage(env, placed & ~finished_now, COFFEE_KNOB_JOINT, threshold_rad, COFFEE_PLACE_LOCAL, COFFEE_BODY)
+    return stages_done & finished_now
 
 
 def stage_progress_reward(env, task_key: str, persistent: bool = True) -> torch.Tensor:
@@ -306,35 +296,21 @@ def stage_progress_reward(env, task_key: str, persistent: bool = True) -> torch.
 
 MAKE_COFFEE_STAGE_GRAPH = mdp.StageGraphSpec(
     stages=(
-        mdp.StageSpec(
-            name="pour_milk",
-            func=milk_poured_over_mug,
-            params={
-                "tilt_rad": POUR_TILT_RAD,
-                "spout_zone": MILK_SPOUT_ZONE,
-                "goal_zone": MUG_GOAL_ZONE,
-            },
-        ),
+        mdp.StageSpec(name="pour_milk", func=milk_poured_over_mug),
         mdp.StageSpec(
             name="place_on_machine",
-            func=mug_on_coffee_maker,
+            func=mug_placed_and_released,
             params={
-                "xy_tol": PLACE_MACHINE_XY_TOL,
-                "z_tol": PLACE_MACHINE_Z_TOL,
                 "place_local": COFFEE_PLACE_LOCAL,
+                "machine_body": COFFEE_BODY,
+                "fingertip_bodies": tuple(FLOATING_SHADOW_RIGHT_FINGERTIP_BODY_NAMES),
             },
             deps=("pour_milk",),
         ),
         mdp.StageSpec(
             name="rotate_knob",
-            func=mdp.joint_relative_move,
-            params={
-                "threshold": KNOB_ROTATE_DISP,
-                "asset_cfg": SceneEntityCfg("coffee_machine", joint_names=[COFFEE_KNOB_JOINT]),
-                "mode": "displacement",
-                "op": ">=",
-                "reduce": "any",
-            },
+            func=knob_turned_with_mug_on_tray,
+            params={"threshold_rad": KNOB_ROTATE_DISP},
             deps=("place_on_machine",),
         ),
     ),
@@ -428,6 +404,25 @@ def _build_milk_cfg() -> RigidObjectCfg:
             pos=(MILK_CENTER_X, MILK_CENTER_Y, TABLE_TOP_Z + MILK_SPAWN_CLEARANCE),
             rot=MILK_INIT_ROT,
         ),
+    )
+
+
+def _build_place_mark_cfg() -> AssetBaseCfg:
+    """A disc on the drip tray showing where the mug goes. Visual only; nothing touches it.
+
+    Part of the scene like a printed mark, so it also appears in camera observations.
+    """
+    return AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/PlaceMark",
+        spawn=sim_utils.CylinderCfg(
+            radius=PLACE_MARK_RADIUS,
+            height=PLACE_MARK_THICKNESS,
+            axis="Z",
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=PLACE_MARK_COLOR, emissive_color=tuple(0.4 * c for c in PLACE_MARK_COLOR)
+            ),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=PLACE_MARK_POS),
     )
 
 
@@ -645,17 +640,33 @@ class MakeCoffeeTerminationsCfg(dexverse_base_env.TerminationsCfg):
         },
     )
     success = DoneTerm(
-        func=mdp.stage_success,
-        params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY, "persistent": True},
+        func=make_coffee_success,
+        params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY},
     )
 
 
 @configclass
 class MakeCoffeeEventCfg(dexverse_base_env.EventCfg):
-    """Resets: coffee machine, cup holder + mug (synced), milk."""
+    """Resets: grip materials, lever stop, coffee machine, cup holder + mug (synced), milk."""
+
+    robot_physics_material = grip_material_event("robot")
+    mug_physics_material = grip_material_event("object")
+    milk_physics_material = grip_material_event("milk")
 
     # The mug resets relative to the holder (below), not on its own.
     reset_object = None
+
+    # On reset, not startup: record_demos.py restarts the physics scene on every reset,
+    # which silently restores the lever limits authored in the USD.
+    limit_lever_travel = EventTerm(
+        func=mdp.events.set_joint_position_limits,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("coffee_machine", joint_names=[COFFEE_KNOB_JOINT]),
+            "lower": -KNOB_STOP_RAD,
+            "upper": KNOB_STOP_RAD,
+        },
+    )
 
     reset_coffee_machine = EventTerm(
         func=mdp.reset_root_pose_uniform,
@@ -735,12 +746,13 @@ class MakeCoffeeEventCfg(dexverse_base_env.EventCfg):
 
 @configclass
 class MakeCoffeeSceneCfg(dexverse_base_env.SceneCfg):
-    """Mug (object) + kinematic cup holder + milk bottle + coffee machine."""
+    """Mug (object) + kinematic cup holder + milk bottle + coffee machine + mark on its tray."""
 
     object: RigidObjectCfg = _build_mug_cfg()
     cup_holder: RigidObjectCfg = _build_cup_holder_cfg()
     milk: RigidObjectCfg = _build_milk_cfg()
     coffee_machine: ArticulationCfg = _build_coffee_machine_cfg()
+    place_mark: AssetBaseCfg = _build_place_mark_cfg()
 
 
 @configclass
@@ -809,4 +821,7 @@ class LongHorizonMakeCoffeeEnvFloatingDexHandRightCfg(LongHorizonMakeCoffeeEnvCf
     def __post_init__(self):
         super().__post_init__()
 
+        tune_hand_for_carrying(self)
+        tune_wrist_camera_bodies(self)
         setup_floating_teleop(self)
+        tune_teleop_for_carrying(self)
