@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEX_EVAL_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-DEXVERSE_DIR="$DEX_EVAL_DIR/DexVerse"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DEXVERSE_DIR="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 DATASET_ROOT="$DEXVERSE_DIR/visionpro_test"
 TASK_NAME="${TASK_NAME:-Dexverse-PickCube-v0}"
 INPUT_DIR="$DATASET_ROOT/$TASK_NAME"
 OUTPUT_ROOT="$DEXVERSE_DIR/demo/visionpro_test"
 VIDEO_ROOT="$OUTPUT_ROOT/composite_videos/$TASK_NAME"
-CONDA_SETUP="/home/dehand/miniconda3/etc/profile.d/conda.sh"
+CONDA_SETUP="${CONDA_SETUP:-$HOME/miniconda3/etc/profile.d/conda.sh}"
 
 if [[ ! -f "$CONDA_SETUP" ]]; then
     echo "Error: Conda initialization script not found: $CONDA_SETUP" >&2

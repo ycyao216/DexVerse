@@ -337,4 +337,3 @@ dependencies:
       - wrapt==1.16.0
       - yarl==1.18.3
       - zipp==4.1.0
-prefix: /home/dehand/miniconda3/envs/dexverse

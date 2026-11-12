@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
 
@@ -79,7 +80,11 @@ def describe(hand: np.ndarray, label: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ip", default="192.168.3.37", help="Vision Pro local-network IP")
+    parser.add_argument(
+        "--ip",
+        default=os.environ.get("VISIONPRO_IP", "192.168.3.37"),
+        help="Vision Pro local-network IP (default: VISIONPRO_IP or 192.168.3.37)",
+    )
     parser.add_argument(
         "--output",
         type=Path,

@@ -67,8 +67,8 @@ IsaacLab 源码没有修改，原来的 CloudXR/OpenXR 设备也仍然保留。
 先在 Vision Pro 的 Tracking Streamer 中开始发送数据，再运行：
 
 ```bash
-cd ~/dex_eval
-./record_demos_visionpro.sh
+cd /path/to/DexVerse
+./scripts/record_demos_visionpro.sh
 ```
 
 Isaac Sim 打开后，将焦点放在主窗口：
@@ -100,12 +100,17 @@ num_steps      轨迹步数
 DexVerse/visionpro_test/<task>/...
 ```
 
-使用 `DexVerse/scripts/demo_tools/create_demo_files_sequential.shcreate_demo_files_sequential.sh` 将指定任务目录中的所有 pkl 逐个转换为 demo ( hdf5 + mp4 )，每个episode对应一个demo.
+使用 `scripts/demo_tools/create_demo_files_sequential.sh` 将指定任务目录中的所有 pkl 逐个转换为 demo（HDF5 + MP4），每个 episode 对应一个 demo：
+
+```bash
+cd /path/to/DexVerse
+TASK_NAME=Dexverse-PickCube-v0 ./scripts/demo_tools/create_demo_files_sequential.sh
+```
 
 该脚本会为每个 pkl 启动一个独立的 Isaac Sim 进程，按记录的初始场景状态和动作顺序重放各个 episode，同时采集 `3view_rgb` 三视角观测。输出文件为：
 
 ```text
-DexVerse/demo/visionpro_test/<task>/<pkl文件>
+DexVerse/demo/visionpro_test/<task>/<pkl文件名>.3view_rgb.seq.demo.h5
 ```
 
 hdf5 使用类似文件系统的 Group/Dataset 层次结构，支持压缩、局部读取和跨语言处理。每个转换结果的核心结构为：
@@ -143,4 +148,3 @@ Tracking Streamer 方案最重要的实际区别是：**不需要 Apple Silicon 
 - 使用 CloudXR 网络端口或 `--xr` 模式。
 
 缺点是 Tracking Streamer 方案只把头部/手部追踪数据传给 DexVerse，仿真画面仍主要在 Ubuntu 上的 Isaac sim 上显示；无法像 CloudXR 那样把双目沉浸式仿真画面实时串流回 Vision Pro。
-

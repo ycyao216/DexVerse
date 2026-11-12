@@ -12,8 +12,8 @@ TELEOP_RETARGETER="${TELEOP_RETARGETER:-relative}"
 RETARGETING_SCHEME="${RETARGETING_SCHEME:-dexpilot}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-DEXVERSE_DIR="$SCRIPT_DIR/DexVerse"
-CONDA_SETUP="$HOME/miniconda3/etc/profile.d/conda.sh"
+DEXVERSE_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+CONDA_SETUP="${CONDA_SETUP:-$HOME/miniconda3/etc/profile.d/conda.sh}"
 
 if [[ ! -f "$CONDA_SETUP" ]]; then
     echo "Error: Conda initialization script not found: $CONDA_SETUP" >&2
