@@ -9,7 +9,8 @@ Success requires all of:
 
   - the water bottle and the tomato soup can each poured into the upright pot,
   - the pot sitting flat on the green-marked burner, not tipped since a pour,
-  - every meat piece inside the pot, and
+  - every meat piece inside the pot,
+  - both used containers released and settled in the counter-gap trash bin,
   - the green-marked knob turned, with all of the above still true.
 
 See ``checks.py`` for what each of these verifies.
@@ -23,6 +24,7 @@ from dataclasses import dataclass
 import isaaclab.sim as sim_utils
 import torch
 from dexverse.assets import LONG_HORIZON_EXTRA_COOKING_DIR, SYNTHESIS_DIR, YCB_DIR
+from dexverse.replay_rigid_object import configure_replay_rigid_objects
 from dexverse.tasks.config.floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG
 from dexverse.tasks.config.functional.base_cfg import (
     ForbiddenZone,
@@ -49,14 +51,18 @@ from .... import mdp
 from ...articulation.articulation_base.usd_helpers import (
     ensure_single_articulation_root,
 )
-from ..check_utils import clear_stage_latches, ever_held
+from ..check_utils import ever_held
+from .pour_feedback import reset_cooking_feedback, update_pour_visuals
+from .trash_bin import trash_bin_cfg
 from ..handling import (
+    configure_cpu_camera_copies,
+    configure_light_virtual_wrist_links,
     GOAL_MARK_THICKNESS,
     goal_mark_cfg,
     grip_material_event,
     show_by_state,
-    tune_hand_for_carrying,
-    tune_teleop_for_carrying,
+    preserve_bimanual_wrist_origins,
+    tune_wrist_damping,
     tune_wrist_camera_bodies,
 )
 from .checks import (
@@ -700,7 +706,16 @@ POT_LIQUID_PRIMS = {code: (f"Pot/{name}",) for code, (name, _, _) in POT_LIQUIDS
 BURNER_LIT_PRIMS = {1: ("BurnerFlame", "BurnerGlow")}
 
 
-def cook_foods_success(env, task_key: str, ready: dict) -> torch.Tensor:
+def refresh_cooking_visuals(env, ready, sources):
+    zero = torch.zeros(env.num_envs, device=env.device, dtype=torch.bool)
+    water, soup, spilled = (ever_held(env, key, zero) for key in ("pour_object", "pour_can", "spill"))
+    show_by_state(env, "liquid", POT_LIQUID_PRIMS, pot_liquid(water, soup, spilled))
+    lit = knob_angle(env, ready["knob_joint"]) >= ready["knob_threshold_rad"]
+    show_by_state(env, "burner", BURNER_LIT_PRIMS, lit.long())
+    update_pour_visuals(env, sources)
+
+
+def cook_foods_success(env, task_key: str, ready: dict, sources: dict) -> torch.Tensor:
     """Every stage done, and the finished state still true right now.
 
     The stage flags latch. Checking the end state live as well makes the consecutive
@@ -712,16 +727,13 @@ def cook_foods_success(env, task_key: str, ready: dict) -> torch.Tensor:
     pours = (("pour_water", "water"), ("pour_can", "can"))
     missing_pours = [label for stage, label in pours if not bool(flags[stage][0])]
     report_status(env, ~(stages_done & finished_now), missing_pours, **ready)
-    spilled = ever_held(env, "spill", stages_done)
-    show_by_state(env, "liquid", POT_LIQUID_PRIMS, pot_liquid(flags["pour_water"], flags["pour_can"], spilled))
-    lit = knob_angle(env, ready["knob_joint"]) >= ready["knob_threshold_rad"]
-    show_by_state(env, "burner", BURNER_LIT_PRIMS, lit.long())
+    refresh_cooking_visuals(env, ready, sources)
     return stages_done & finished_now
 
 
 @configclass
-class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightCfg):
-    """Long-horizon cook task: pot on stove, ingredients + pours into pot, stove on.
+class CookFoodsEnvFloatingDexHandsCfg(FunctionalPourEnvFloatingDexHandRightCfg):
+    """Two-hand cooking: fill the pot, discard containers, and turn on the stove.
 
     Built on the pour template ( ``object`` = small water bottle ) with an
     additional ``pot`` rigid prop carried onto the stove burner, ingredient
@@ -732,13 +744,15 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
       - ``pour_water`` / ``pour_can`` -- latched prerequisites (the transient
         pour only has to happen once during the episode),
       - ``turn_on_stove`` -- terminal stage that fires once both pours are
-        latched AND the knob is turned, the pot is on the burner, and every
-        ingredient is inside the pot.
+        latched AND the knob is turned, the pot is on the burner, every
+        ingredient is inside the pot, and both containers are released in the bin.
 
     Success also needs that end state to be true right now, so it can be lost
     again. The prerequisites have no ordering among themselves; turning on the
     stove is always the last step.
     """
+
+    robot_type: str = "floating_shadow_bimanual"
 
     # ---- Pour object: small water bottle ----
     usd_path: str = BOTTLE_USD_PATH
@@ -880,14 +894,16 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
     def __post_init__(self):
         super().__post_init__()
 
-        tune_hand_for_carrying(self)
         tune_wrist_camera_bodies(self)
+        configure_cpu_camera_copies(self)
+        tune_wrist_damping(self)
+        configure_light_virtual_wrist_links(self)
 
         self.terminations.object_out_of_bound = None
 
         # Pour-goal marker: kept as a (kinematic, non-colliding) scene entity so
         # the success_marker reset / follow-to-pot events still have a target,
-        # but rendered INVISIBLE -- no on-screen pour-goal cue.
+        # but rendered invisible; the live aiming ring/spouts are drawn separately.
         self.scene.success_marker.spawn = sim_utils.SphereCfg(
             radius=0.04,
             visible=False,
@@ -911,6 +927,11 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
         self.scene.table_leg_back_right = None
 
         self.scene.kitchen_cabinet = _build_kitchen_cabinet_cfg()
+        self.scene.trash_bin = trash_bin_cfg()
+        self.events.reset_trash_bin = EventTerm(
+            func=mdp.reset_root_pose_uniform, mode="reset",
+            params={"pose_range": {}, "velocity_range": {}, "asset_cfg": SceneEntityCfg("trash_bin")},
+        )
 
         # All props on the counter are positioned relative to the cabinet's
         # counter centre in cabinet-local frame, then rotated + translated
@@ -1261,31 +1282,25 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
             "zone_radius": self.pot_interior_zone_radius,
             "zone_half_height": self.pot_interior_zone_half_height,
             "pour_names": ("object", "can"),
+            "disposal": {"fingertip_body_names": tuple(self.robot_config.fingertip_body_names)},
         }
+        sources = {
+            "pour_water": {"pour_name": "object", "label": "Water",
+                           "tilt_axis_local": self.pour_axis_local,
+                           "spout_local": self.pour_goal_object_local_offset, **shared_pour_params},
+            "pour_can": {"pour_name": "can", "label": "Soup",
+                         "tilt_axis_local": self.can_pour_axis_local,
+                         "spout_local": self.can_pour_goal_object_local_offset, **shared_pour_params},
+        }
+        from .state import capture_cooking_state, restore_cooking_state
+        self.cooking_task_key = COOK_FOODS_STAGE_GRAPH_KEY
+        self.cooking_ready, self.cooking_sources = ready, sources
+        self.capture_task_state = capture_cooking_state
+        self.restore_task_state = restore_cooking_state
         cook_foods_stage_graph = mdp.StageGraphSpec(
             stages=(
-                mdp.StageSpec(
-                    name="pour_water",
-                    func=poured_into_pot,
-                    params={
-                        "pour_name": "object",  # the bottle (inherited pour-template ``object``)
-                        "label": "Water",
-                        "tilt_axis_local": self.pour_axis_local,
-                        "spout_local": self.pour_goal_object_local_offset,
-                        **shared_pour_params,
-                    },
-                ),
-                mdp.StageSpec(
-                    name="pour_can",
-                    func=poured_into_pot,
-                    params={
-                        "pour_name": "can",  # the tomato soup can
-                        "label": "Can",
-                        "tilt_axis_local": self.can_pour_axis_local,
-                        "spout_local": self.can_pour_goal_object_local_offset,
-                        **shared_pour_params,
-                    },
-                ),
+                mdp.StageSpec(name="pour_water", func=poured_into_pot, params=sources["pour_water"]),
+                mdp.StageSpec(name="pour_can", func=poured_into_pot, params=sources["pour_can"]),
                 mdp.StageSpec(
                     name="turn_on_stove",
                     func=stove_on_and_pot_ready,
@@ -1301,13 +1316,14 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
         # No observation here evaluates the stage graph as an episode restarts, so one
         # attempt's pours would otherwise still count in the next.
         self.events.clear_stage_latches = EventTerm(
-            func=clear_stage_latches,
+            func=reset_cooking_feedback,
             mode="reset",
-            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY},
+            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY, "sources": sources,
+                    "liquid_prims": POT_LIQUID_PRIMS, "burner_prims": BURNER_LIT_PRIMS},
         )
         self.terminations.success = DoneTerm(
             func=cook_foods_success,
-            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY, "ready": ready},
+            params={"task_key": COOK_FOODS_STAGE_GRAPH_KEY, "ready": ready, "sources": sources},
         )
 
         # Pull the wrist forward so the visible counter sits in the natural
@@ -1324,4 +1340,11 @@ class CookFoodsEnvFloatingDexHandRightCfg(FunctionalPourEnvFloatingDexHandRightC
             anchor_rot=DEFAULT_FLOATING_SHADOW_XR_CFG.anchor_rot,
         )
         align_retargeter_wrist_origin_to_init(self)
-        tune_teleop_for_carrying(self, surface_z=COUNTER_SURFACE_Z)
+        preserve_bimanual_wrist_origins(self)
+        # CPU PhysX rejects velocity writes to the fixed bin/markers during
+        # reset and state restore. Preserve their poses and all dynamic writes.
+        configure_replay_rigid_objects(self.scene)
+
+
+# Compatibility import; the canonical task now always defaults to both hands.
+CookFoodsEnvFloatingDexHandRightCfg = CookFoodsEnvFloatingDexHandsCfg

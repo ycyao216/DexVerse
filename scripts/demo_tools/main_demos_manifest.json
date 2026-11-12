@@ -1,0 +1,1445 @@
+{
+  "schema_version": 1,
+  "collection": "main",
+  "repo": "dexverse/DexVerse_release",
+  "task_version": "v0",
+  "robot_scope": "floating Shadow, single-hand and bimanual",
+  "tasks": 42,
+  "episodes": 2034,
+  "state_replay": true,
+  "all_episodes_have_T_plus_1_states": true,
+  "files": [
+    {
+      "path": "demonstrations/main/v0/bimanual/Dexverse-BimanualHandover-v0/shadow_part_001.pkl",
+      "sha256": "a77349abb7ff3d9b1ca5e839fc089cbd36e1697aef06ea9ecb13b9b2318a8091",
+      "bytes": 23114103,
+      "task": "Dexverse-BimanualHandover-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/bimanual/Dexverse-BimanualHandover-v0/shadow_part_002.pkl",
+      "sha256": "da79769f217f32746cc77095fbd00a92459855afe1cd79271aa42a7594007637",
+      "bytes": 767034,
+      "task": "Dexverse-BimanualHandover-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/bimanual/Dexverse-BimanualHandover-v0/shadow_part_003.pkl",
+      "sha256": "8f637430fa01db2cbf024bb615c8cd113990fb3f2123b29c7b2117108551a633",
+      "bytes": 879066,
+      "task": "Dexverse-BimanualHandover-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/bimanual/Dexverse-BimanualLiftBasket-v0/shadow_part_001.pkl",
+      "sha256": "143c04660a4d0eb8c8c76d290ede2fce91bc57655b1b4e783bb44a02d3d8a31d",
+      "bytes": 30919274,
+      "task": "Dexverse-BimanualLiftBasket-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/bimanual/Dexverse-BimanualLiftDutchOven-v0/shadow_part_001.pkl",
+      "sha256": "b50a9d6e0efbe59975f01d353cf828ac08ef81b3cb86ece1739b773f4dca34c1",
+      "bytes": 13794667,
+      "task": "Dexverse-BimanualLiftDutchOven-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-CabinetDoubleDoor-v0/shadow_part_001.pkl",
+      "sha256": "bca1a5fa18949ab451d905cb4b5b234aa70b97e086ef4cff0e49fdeff440f006",
+      "bytes": 636659,
+      "task": "Dexverse-CabinetDoubleDoor-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-CabinetDoubleDoor-v0/shadow_part_002.pkl",
+      "sha256": "28c64b5ee1204e9e0d6e96c2e974c449b9f6ec54e996e48f67d75e71d4f4762d",
+      "bytes": 5447926,
+      "task": "Dexverse-CabinetDoubleDoor-v0",
+      "episodes": 4,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-CabinetDoubleDoor-v0/shadow_part_003.pkl",
+      "sha256": "6dc135bf70089f92c65990a1128fdb58d0fc05bcd2b1f742283966064bd07d47",
+      "bytes": 4409534,
+      "task": "Dexverse-CabinetDoubleDoor-v0",
+      "episodes": 4,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-CabinetDoubleDoor-v0/shadow_part_004.pkl",
+      "sha256": "d089a2cf95815240e997c1b5fadef87976da0b8258aa21d1ad8eb49574188b98",
+      "bytes": 36584535,
+      "task": "Dexverse-CabinetDoubleDoor-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/functional/Dexverse-FunctionalDrillApply-v0/shadow_part_001.pkl",
+      "sha256": "ab2e3624431272b289537b33f091fe1686f8de57574f5feb46866a1689a6bd48",
+      "bytes": 21227128,
+      "task": "Dexverse-FunctionalDrillApply-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-GearMesh-v0/shadow_part_001.pkl",
+      "sha256": "77ea905d863ce2bc4ec6582dd81ba30131fd1278e447eaf2bd5b249a537cf64e",
+      "bytes": 80505524,
+      "task": "Dexverse-GearMesh-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-GraspBucket-v0/shadow_part_001.pkl",
+      "sha256": "9ee9d73725c5f6da293d26549ce90a1ac4a0874aa89461d5242648c810af2cab",
+      "bytes": 1180481,
+      "task": "Dexverse-GraspBucket-v0",
+      "episodes": 3,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-GraspBucket-v0/shadow_part_002.pkl",
+      "sha256": "d91b043ed37ee858b2723a28bd96a74f4748eed5b17c9e50436cc4a5ebb5eeb4",
+      "bytes": 325430,
+      "task": "Dexverse-GraspBucket-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-GraspBucket-v0/shadow_part_003.pkl",
+      "sha256": "6f43a5160214c269bb895298e3c8114a689d86fbfe7a4ee8ef7019b2d2583abf",
+      "bytes": 12614124,
+      "task": "Dexverse-GraspBucket-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-GraspBucket-v0/shadow_part_004.pkl",
+      "sha256": "deab2aa51b0ed8d2ffee98e0b5dd6e72fc38367f04ea3d7836647217ebff9e9f",
+      "bytes": 1296150,
+      "task": "Dexverse-GraspBucket-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-GraspPot-v0/shadow_part_001.pkl",
+      "sha256": "6335d7f4bbe8d47bac7b6535527c84937c0a1dfaf4f19d7160092d52cd7708f2",
+      "bytes": 11050131,
+      "task": "Dexverse-GraspPot-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-GraspTwoItems-v0/shadow_part_001.pkl",
+      "sha256": "eb9c08a76a4b039d497fbd6078eaa4bc717ccc78c1b9869b1f28e8cbeeca9d69",
+      "bytes": 75858939,
+      "task": "Dexverse-GraspTwoItems-v0",
+      "episodes": 42,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-GraspTwoItems-v0/shadow_part_002.pkl",
+      "sha256": "a2cddee07f5771539c1fa1dec5f9ae664d8fd4be69e43f278a803f87ca301409",
+      "bytes": 8918741,
+      "task": "Dexverse-GraspTwoItems-v0",
+      "episodes": 4,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-GraspTwoItems-v0/shadow_part_003.pkl",
+      "sha256": "9c5006108fa881f9ce62e4ef430c1e7a7c1d50e46532194f7638b2366d5740ab",
+      "bytes": 10952932,
+      "task": "Dexverse-GraspTwoItems-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-GraspTwoItems-v0/shadow_part_004.pkl",
+      "sha256": "ce8f1423fe05d894e071b8549e33904a38b6f9ba4e43a60762d4c193141fc74a",
+      "bytes": 8965203,
+      "task": "Dexverse-GraspTwoItems-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-GraspTwoItems-v0/shadow_part_005.pkl",
+      "sha256": "17992c5e629800c0436c1faec2c197bed2fce3d8e967903c1bd643feec1ebaef",
+      "bytes": 7091304,
+      "task": "Dexverse-GraspTwoItems-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-InsertPeg-v0/shadow_part_001.pkl",
+      "sha256": "840e098630c2acf177c81af5cfa84f662e177c3c21b20267d30757630c0a3076",
+      "bytes": 53524888,
+      "task": "Dexverse-InsertPeg-v0",
+      "episodes": 50,
+      "runtime_profile": "approved_20261111",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-InsertPipette-v0/shadow_part_001.pkl",
+      "sha256": "b7decbeab58db46c25a8836d007c67e57e81fde36df749da35d5923ba9cfe702",
+      "bytes": 27214616,
+      "task": "Dexverse-InsertPipette-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-LiftBasketHandle-v0/shadow_part_001.pkl",
+      "sha256": "55f0def2f4e3769ed9bcf0c2a975b3635b3b83513ca5b312538c9ab5e6a0f2e1",
+      "bytes": 29417526,
+      "task": "Dexverse-LiftBasketHandle-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-LiftBucket-v0/shadow_part_001.pkl",
+      "sha256": "74e9c81bbf6d9f12e7b7c9fa878a5fdaea1aa8f4c699287a4b792553d7a9e380",
+      "bytes": 18919673,
+      "task": "Dexverse-LiftBucket-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-LiftLid-v0/shadow_part_001.pkl",
+      "sha256": "48ae893bc249dccf4aaf8c0d277d4766ebddc3fb3623ff7e151ea324189a11cb",
+      "bytes": 14590425,
+      "task": "Dexverse-LiftLid-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-CookFoods-v0/shadow_part_001.pkl",
+      "sha256": "1f7d861f7c7ffbc06cb1afaaf5db714097fe6c27ce144378a6f6379730717bf7",
+      "bytes": 11459863,
+      "task": "Dexverse-LongHorizon-CookFoods-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-CookFoods-v0/shadow_part_002.pkl",
+      "sha256": "18fc7ec68d33a5885c3f0a96aac1a4246d67c1ede4c82f5810854f03e50f5fe6",
+      "bytes": 129288298,
+      "task": "Dexverse-LongHorizon-CookFoods-v0",
+      "episodes": 19,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-CookFoods-v0/shadow_part_003.pkl",
+      "sha256": "c3f2d302859f523ad4d20b7c92be22e506d1e6cbccef1077a587846303478ee9",
+      "bytes": 11551873,
+      "task": "Dexverse-LongHorizon-CookFoods-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MakeCoffee-v0/shadow_part_001.pkl",
+      "sha256": "15ba283636375493ad736d2549e1a3b9b0b20a0d6d0983a8514ce3560c5a43d8",
+      "bytes": 28549735,
+      "task": "Dexverse-LongHorizon-MakeCoffee-v0",
+      "episodes": 20,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MakeCoffee-v0/shadow_part_002.pkl",
+      "sha256": "75e568cc3b9345be45fb8fbbc0a4a0908519535b988da873e2a5ce7104d9eb9b",
+      "bytes": 1896147,
+      "task": "Dexverse-LongHorizon-MakeCoffee-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MicrowaveRetrievePlace-v0/shadow_part_001.pkl",
+      "sha256": "39dd1f6b657c7372a8d9dfa46508d1a484672c2913ec01f0b4d679f0ce500f2e",
+      "bytes": 4157288,
+      "task": "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MicrowaveRetrievePlace-v0/shadow_part_002.pkl",
+      "sha256": "99e86bd5e7c987fd4b5dffd8d56b9dc57d4da3f2fc383c1fe049c97d027426e2",
+      "bytes": 11144919,
+      "task": "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MicrowaveRetrievePlace-v0/shadow_part_003.pkl",
+      "sha256": "32dce7ddb57a872e3b9700bc7d889effc79e5beba8906c84a910a287d77e0e17",
+      "bytes": 4467862,
+      "task": "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-MicrowaveRetrievePlace-v0/shadow_part_004.pkl",
+      "sha256": "335b8350393f32e488d6c80ff4fec970b8fa6111fe0ffaff650ff32257da7ca6",
+      "bytes": 71927665,
+      "task": "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0",
+      "episodes": 20,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-OvenBakeSalmon-v0/shadow_part_001.pkl",
+      "sha256": "1f5d536304b2509e9193d3d73dab797c11fbfbbf7d0dce22d4f92417fa09107e",
+      "bytes": 106497123,
+      "task": "Dexverse-LongHorizon-OvenBakeSalmon-v0",
+      "episodes": 20,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-TrashDrawerSortSimple-v0/shadow_part_001.pkl",
+      "sha256": "35f17a3a2ea270fd76594b116636acc1701a98802b731f3e2c1cba717073e004",
+      "bytes": 83358479,
+      "task": "Dexverse-LongHorizon-TrashDrawerSortSimple-v0",
+      "episodes": 11,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-TrashDrawerSortSimple-v0/shadow_part_002.pkl",
+      "sha256": "987c7c9aaf30359b67525178b501258fe84e4baf5f2289c8a4e4455fbce6922f",
+      "bytes": 49744675,
+      "task": "Dexverse-LongHorizon-TrashDrawerSortSimple-v0",
+      "episodes": 8,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/long_horizon/Dexverse-LongHorizon-TrashDrawerSortSimple-v0/shadow_part_003.pkl",
+      "sha256": "8e4cee57e6fcfc0ca6d1bfb85a3ea8503dee9362ad27fc2a2ab86048010cf6d8",
+      "bytes": 8625997,
+      "task": "Dexverse-LongHorizon-TrashDrawerSortSimple-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-NutThread-v0/shadow_part_001.pkl",
+      "sha256": "8fbc49361683a4c1d2dbc21599c81896ef45612e1782e10911ac07fe3b2e80f4",
+      "bytes": 12304593,
+      "task": "Dexverse-NutThread-v0",
+      "episodes": 7,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-NutThread-v0/shadow_part_002.pkl",
+      "sha256": "62ddf90daf8f919dbac017db24e8a65dabfa35a2aa14b4757b2160e0b296faf1",
+      "bytes": 4059821,
+      "task": "Dexverse-NutThread-v0",
+      "episodes": 4,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-NutThread-v0/shadow_part_003.pkl",
+      "sha256": "0675e50e12a064d3a41e2c28dd400619a2ab3beeff8a6419c3c1d0e39e6fa788",
+      "bytes": 103035445,
+      "task": "Dexverse-NutThread-v0",
+      "episodes": 43,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-NutThread-v0/shadow_part_004.pkl",
+      "sha256": "40e220a9753e45fb9b1e0fb7cd369bb9cf7ae9a703e00da2f9959219b6ba56cb",
+      "bytes": 3180138,
+      "task": "Dexverse-NutThread-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenCabinet-v0/shadow_part_001.pkl",
+      "sha256": "88527748dd03e25db41c952b42eb9e0f95e9cf8a65a72d0b47178dd0a8264fdc",
+      "bytes": 3334983,
+      "task": "Dexverse-OpenCabinet-v0",
+      "episodes": 6,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenCabinet-v0/shadow_part_002.pkl",
+      "sha256": "2ef49ac6563e803b2b2f9940e24eb10ee90924aa8e0224143c19344808946b17",
+      "bytes": 17318488,
+      "task": "Dexverse-OpenCabinet-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenCabinet-v0/shadow_part_003.pkl",
+      "sha256": "90663ea011609c280ef924aac4f93ea10da4658366b43841ccdd2093798c2475",
+      "bytes": 669645,
+      "task": "Dexverse-OpenCabinet-v0",
+      "episodes": 2,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenDoor-v0/shadow_part_001.pkl",
+      "sha256": "cf8d25054693c0f23d08bf98f9fe68b4fc6f30d68401823de73147a2ba5632b2",
+      "bytes": 18281382,
+      "task": "Dexverse-OpenDoor-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenDoor-v0/shadow_part_002.pkl",
+      "sha256": "f133261c05f7b990272b5b1a7ef7a0fd135e37e79bf627e4d975232c99948776",
+      "bytes": 341210,
+      "task": "Dexverse-OpenDoor-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenDoor-v0/shadow_part_003.pkl",
+      "sha256": "9c106ff0ea627a923d454a1d84cc0dcb4f3a6a5f341e1224932549af2a6dbe6a",
+      "bytes": 1948293,
+      "task": "Dexverse-OpenDoor-v0",
+      "episodes": 4,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenDrawer-v0/shadow_part_001.pkl",
+      "sha256": "f5bc06c404d2c2c4615e8e236aa6fb9f758eaf50c1b8a90feb62f268c703a169",
+      "bytes": 15677358,
+      "task": "Dexverse-OpenDrawer-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenGlasses-v0/shadow_part_001.pkl",
+      "sha256": "7f4160b226273d3386c3fade83517d68cbb98069cc9aca31193b2d14503bd7e1",
+      "bytes": 56993273,
+      "task": "Dexverse-OpenGlasses-v0",
+      "episodes": 34,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenGlasses-v0/shadow_part_002.pkl",
+      "sha256": "d5ab6d186bc451806e464dfe1f7de8d6d99e122de1336a50dfd717b691370e46",
+      "bytes": 20049312,
+      "task": "Dexverse-OpenGlasses-v0",
+      "episodes": 16,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenFoldablePhone-v0/shadow_part_001.pkl",
+      "sha256": "aa8553c5699a48b4896e9ad3d20e13bc1c484ea4bb3ed1a7da645a6b9cbab542",
+      "bytes": 44233478,
+      "task": "Dexverse-OpenFoldablePhone-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-OpenMicrowave-v0/shadow_part_001.pkl",
+      "sha256": "fd8119b8d073fd044cb86db2dc0156eea778d8ce75474278f87802ada3ced430",
+      "bytes": 10762996,
+      "task": "Dexverse-OpenMicrowave-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-PickCube-v0/shadow_part_001.pkl",
+      "sha256": "2a14177fc165a480cbd3fe152ec236e26b41ef2f5b06c74e7bd76212927f478c",
+      "bytes": 14348904,
+      "task": "Dexverse-PickCube-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-PickFromClutter-v0/shadow_part_001.pkl",
+      "sha256": "681de2a43a244788494c4b833b517f385c8e8eba959c6ba2e8cea869e705054c",
+      "bytes": 74590139,
+      "task": "Dexverse-PickFromClutter-v0",
+      "episodes": 38,
+      "runtime_profile": "approved_20261111",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-PickFromClutter-v0/shadow_part_002.pkl",
+      "sha256": "589e4dc5826354d20ec3976e4603f087ba18fc37224c071dcfc5beca6a459bb5",
+      "bytes": 25321549,
+      "task": "Dexverse-PickFromClutter-v0",
+      "episodes": 12,
+      "runtime_profile": "approved_20261111",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-PickThinObjectFromContainer-v0/shadow_part_001.pkl",
+      "sha256": "a8ecb66da2575de9b0502abae08d7ff36cb9c2da71ea1a3804970ab0619fa7ae",
+      "bytes": 36081428,
+      "task": "Dexverse-PickThinObjectFromContainer-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-PickUpStick-v0/shadow_part_001.pkl",
+      "sha256": "180f9a39381e88d74292633d7dc6c56aedb8176dc50ec1fd06f44836ef8c8444",
+      "bytes": 12919186,
+      "task": "Dexverse-PickUpStick-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/non_prehensile/Dexverse-PivotLargeCuboidAgainstWall-v0/shadow_part_001.pkl",
+      "sha256": "5bea236c037bb2cee2d0d0eebf30ca9bf481e701a2ecbed1185ea3118323413a",
+      "bytes": 33024111,
+      "task": "Dexverse-PivotLargeCuboidAgainstWall-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/contact_rich/Dexverse-PlugCharger-v0/shadow_part_001.pkl",
+      "sha256": "cadaa5296ef0767e129af537a0380a68b0a1700778afd38f5cb467894be8f9ba",
+      "bytes": 52983894,
+      "task": "Dexverse-PlugCharger-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/functional/Dexverse-PourWineGlass-v0/shadow_part_001.pkl",
+      "sha256": "21c867344851e1cd3d60276b92f51cce9ce101a62a0607bfe93fcecfce79b3f7",
+      "bytes": 16288740,
+      "task": "Dexverse-PourWineGlass-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-PushButton-v0/shadow_part_001.pkl",
+      "sha256": "5131672ab629875b88bc768bcb4b4c5c1fb40b3746c66e1c9ddefc5cb3d26304",
+      "bytes": 5783592,
+      "task": "Dexverse-PushButton-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/non_prehensile/Dexverse-PushSphereUpSlope-v0/shadow_part_001.pkl",
+      "sha256": "d374acd76819049ce9f363787e576047589636ffe8a94f5fdb9a11ce85721f10",
+      "bytes": 24590891,
+      "task": "Dexverse-PushSphereUpSlope-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_001.pkl",
+      "sha256": "0f28fc8b425b3c7bc85a25b5085533d2a8c265fcf1bc155850e12e3a121ad1a6",
+      "bytes": 495716,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "charging_dock/001",
+      "original_demo_number": 1
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_002.pkl",
+      "sha256": "f147f2c7395fcbc2aafbd7f512398a1f437740c092caef5cce69ff90e8e41216",
+      "bytes": 547270,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "pilates_ring/008",
+      "original_demo_number": 2
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_003.pkl",
+      "sha256": "ee3a9eb59460a37b5047d3b738c586f23d1da99d62b47d5a3c98a9d96ab51d42",
+      "bytes": 573656,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "pineapple/008",
+      "original_demo_number": 3
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_004.pkl",
+      "sha256": "ada7bfe888f17451b18b13eaa5961a2c15c66f9c75741e49bb7685d38111f2fd",
+      "bytes": 437697,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "binders/002",
+      "original_demo_number": 4
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_005.pkl",
+      "sha256": "72f3b9569578dd276669f1112859ac4b3dba3e7d4338d4cf7c90dca21ad9dc2b",
+      "bytes": 2427288,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "coffee_spoon/003",
+      "original_demo_number": 5
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_006.pkl",
+      "sha256": "32ce0e940968143300b129d4abdb061eda64c574940b07cc8ce05085d354695f",
+      "bytes": 428407,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "adjustment_notches/002",
+      "original_demo_number": 6
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_007.pkl",
+      "sha256": "71b56b0c3a33720f6a735fb603c0925cd5354464dab237066cfa858a1b83ab8f",
+      "bytes": 403544,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "air_conditioner_remote/003",
+      "original_demo_number": 7
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_008.pkl",
+      "sha256": "4e76155deb801851eb6f1b0d068106282b09e5806ca8130643b63c9a344da398",
+      "bytes": 437566,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "aluminum_dustpan/000",
+      "original_demo_number": 8
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_009.pkl",
+      "sha256": "d4133f0403eb2b78be8115ef027b30d31065ad556f0890421eee18b43a693b0c",
+      "bytes": 470282,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "anchors/000",
+      "original_demo_number": 9
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_010.pkl",
+      "sha256": "0219fecca0b5ce9805aa9e5462371f36992d840d8e1acf1bda6776c0c4a80da1",
+      "bytes": 529224,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "assembly_insect_model/021",
+      "original_demo_number": 10
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_011.pkl",
+      "sha256": "0c928c8ea16c5255311b7776c0c8a6d00cba05f82fb9a30a41546a0fa70f3f98",
+      "bytes": 322338,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "ball_pump/001",
+      "original_demo_number": 11
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_012.pkl",
+      "sha256": "23dd482177e443d08443bcae660e735180361178811f0d929a37d42e62c9d77f",
+      "bytes": 436257,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "bike_bottle_cage/024",
+      "original_demo_number": 12
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_013.pkl",
+      "sha256": "0f671aba3c6bd059bf41f57edd67e6de8738288387ff82ccdcf73916de1bb6c4",
+      "bytes": 307927,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "box/003",
+      "original_demo_number": 13
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_014.pkl",
+      "sha256": "1c55a3cc4d1c30bb6ddcf9c334031124eb7ef45580ab87bde028e5cd20a1037d",
+      "bytes": 462434,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "cake_stand/003",
+      "original_demo_number": 14
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_015.pkl",
+      "sha256": "7a1c7ea74a69d5d2767a51a7e327387acc8bf7f47d901c313648052c1f85a2c8",
+      "bytes": 361623,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "can_opener/000",
+      "original_demo_number": 15
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_016.pkl",
+      "sha256": "0ce3309a67a9fadbff11a3448df0598121578e52b9ffafe53b9bb1f93aee1de2",
+      "bytes": 302707,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "can_openers/001",
+      "original_demo_number": 16
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_017.pkl",
+      "sha256": "bce0351ac64c8feefe858f572bc6b8a176843a5fa2a6ff1b5e11af4eb9c6a8bf",
+      "bytes": 318421,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "canning_funnel/000",
+      "original_demo_number": 17
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_018.pkl",
+      "sha256": "276cc12baff300ae0b19976d90da2235f45156dacef124db79d28221984b7af6",
+      "bytes": 343289,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "carafe/005",
+      "original_demo_number": 18
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_019.pkl",
+      "sha256": "d39beb7e4c3be3c0d746ecdd655f0eef3d40008ff4e200887d3ec9596c268387",
+      "bytes": 330211,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "carbon_scraper/000",
+      "original_demo_number": 19
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_020.pkl",
+      "sha256": "1ab2a93483866360d593387a400e465a3a37df9aa57349c1f85a969202a32e4d",
+      "bytes": 440188,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "carpet_shampoo_jug/003",
+      "original_demo_number": 20
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_021.pkl",
+      "sha256": "680385f87bd7b0b57a480f89014766ac7f730374edc822076c3290ea7d05917f",
+      "bytes": 353781,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "cast_iron_pestle/000",
+      "original_demo_number": 21
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_022.pkl",
+      "sha256": "9c4e5fa4ece139495211d2a74225803bd68bc5106feb60cd90f5d366bd6f6c37",
+      "bytes": 357712,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "ceiling_fan_remote/002",
+      "original_demo_number": 22
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_023.pkl",
+      "sha256": "37d40d898f3ff943bfdf5ac33fa68a026c6d867e7deba69b58950edfc4d89572",
+      "bytes": 304026,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "ceiling_fan_tool/000",
+      "original_demo_number": 23
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_024.pkl",
+      "sha256": "b16b245273ef1f98ab3d4f3ce5fced523bfbca695693e6ee01b3241c081e1687",
+      "bytes": 404833,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "ceramic_vase/001",
+      "original_demo_number": 24
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_025.pkl",
+      "sha256": "15beff6f542f68a69c8c5f23989e8ffc6eec3aa4547456901b528395b044a7a1",
+      "bytes": 373406,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "cereal_bowl/000",
+      "original_demo_number": 25
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_026.pkl",
+      "sha256": "858fc70df4606e789220da8b944df0c46ec32c5f339ae289501d459483b1507d",
+      "bytes": 377337,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "charging_dock/001",
+      "original_demo_number": 26
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_027.pkl",
+      "sha256": "e9d7f7b9521875af87ddad88962cc808f499d01bfd5b24d02d7577c4aaf00e2b",
+      "bytes": 284385,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "cherry_pitter/001",
+      "original_demo_number": 27
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_028.pkl",
+      "sha256": "ee77d93ce96049cb32ceb36b380190594f739fdf540d16418cbdd195cccb6f3c",
+      "bytes": 365556,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "cherry_stoner/000",
+      "original_demo_number": 28
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_029.pkl",
+      "sha256": "64bbd1247584d7a94b0aa5b39b5f0088451ae94170ef376b83445aab19d54955",
+      "bytes": 432324,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "chimney_brush/001",
+      "original_demo_number": 29
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_030.pkl",
+      "sha256": "c0e9f23e62eb54f28a18c0e4ef78fc6f0614f6e293458d4d3cd454fd74ddaef0",
+      "bytes": 322344,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "clam_shucker/006",
+      "original_demo_number": 30
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_031.pkl",
+      "sha256": "31a11ed2c284dcef47a66073d39d2249a80fb29a622fad35862910b1f4ec182f",
+      "bytes": 378628,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "clip/006",
+      "original_demo_number": 31
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_032.pkl",
+      "sha256": "f1669449b33502fcedd83aff64028045ecfe8caf11898e491c753c80506ef388",
+      "bytes": 304018,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "coffee_scoop/004",
+      "original_demo_number": 32
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_033.pkl",
+      "sha256": "a06b7736f2f9eb98a2d25d7e549b72235ead27f6954d1a691cf08ce3c095b02d",
+      "bytes": 345919,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "coffee_spoon/003",
+      "original_demo_number": 33
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_034.pkl",
+      "sha256": "11e45496a32a5d9923da5acacd449139d9759cf824340651549b18ad04edf423",
+      "bytes": 345913,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "compasses/043",
+      "original_demo_number": 34
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_035.pkl",
+      "sha256": "d166c4bbd0b4255a6f6180eb62cadcec0120beac826b9e4c438785e097a07901",
+      "bytes": 455880,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "controller/005",
+      "original_demo_number": 35
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_036.pkl",
+      "sha256": "34b5714270fd45dcef65a656141328a356d1a8778067f7408a33b15ab1671313",
+      "bytes": 423157,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "copper_vase/004",
+      "original_demo_number": 36
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_037.pkl",
+      "sha256": "13e3fd9fa94d4bc87b35da5d91903a3bd7f363595ae4b33c045009b168553ec4",
+      "bytes": 372095,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "drum_clock/000",
+      "original_demo_number": 37
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_038.pkl",
+      "sha256": "6b2773c3b136a55992ee13835068e3663e13398aec81b39db457309f4f5a2aad",
+      "bytes": 318419,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "egg_separator/000",
+      "original_demo_number": 38
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_039.pkl",
+      "sha256": "7973f3f60f03bd068dc8d8661a7cfdb10439e1a0e3f58ea727631110e6da714e",
+      "bytes": 463741,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "egg_timer/005",
+      "original_demo_number": 39
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_040.pkl",
+      "sha256": "5bae797708392bd37e078d23c96eaf59964b8bed4f8a2e5dd72478504fe4ddf8",
+      "bytes": 349852,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "enamel_colander/002",
+      "original_demo_number": 40
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_041.pkl",
+      "sha256": "35dc16640f5a8325e089834a52e56502600cc4b7670ee2c295c5b39ed08f4545",
+      "bytes": 622152,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "enamel_vase/001",
+      "original_demo_number": 41
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_042.pkl",
+      "sha256": "9fe1965106624716ad925921979d2ec38c8d8123043392847577bd42d2235331",
+      "bytes": 373408,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "exhaust_vent/003",
+      "original_demo_number": 42
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_043.pkl",
+      "sha256": "803458fcfbc2f43d65d6b0471cd36a1b282eda0e02cef2c7f4abadeac673bd58",
+      "bytes": 276533,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "extension_pipe/015",
+      "original_demo_number": 43
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_044.pkl",
+      "sha256": "483ca31a7f2db55476ea0ef43839a178bee99378bc6b3670591c460a1f658ecb",
+      "bytes": 421832,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "fig/011",
+      "original_demo_number": 44
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_045.pkl",
+      "sha256": "256da3a4c54b7c52b7c0e26a7275306cad7f18586d44d858a324ddf9ecc62041",
+      "bytes": 307943,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "fishing_net/000",
+      "original_demo_number": 45
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_046.pkl",
+      "sha256": "6e9c049dca20c2abb69edce4df4878e2fc40d3b3f66ca07b3baaa437c921577b",
+      "bytes": 424478,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "galvanized_bucket/011",
+      "original_demo_number": 46
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_047.pkl",
+      "sha256": "8063099bc00dd44e00bd8e6a469505b24d928fd3950a71fa00bd1d6bdbe43191",
+      "bytes": 353785,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "garage_door_remote/000",
+      "original_demo_number": 47
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_048.pkl",
+      "sha256": "b6f4fd4c446e25b05af12b6301eb1cbed57c6ae3548b582e22d93b8aa190d36a",
+      "bytes": 285694,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "garlic_rocker/000",
+      "original_demo_number": 48
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_049.pkl",
+      "sha256": "f3bfe8402a5a7bb5feafc678b41646699ba145bbcce97f889acee4ced00bee9b",
+      "bytes": 376022,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "gear_shaft/009",
+      "original_demo_number": 49
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_050.pkl",
+      "sha256": "df15e0f88422ba184ddfb6580fc087524e6fddc80c5de1106e7a2ca9194337e8",
+      "bytes": 349832,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "glass/011",
+      "original_demo_number": 50
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_051.pkl",
+      "sha256": "09318b08dc06b222c80193d65aa8473585dd830f727c8cea48d7ad2daf9dd307",
+      "bytes": 416612,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "glass_cubes/000",
+      "original_demo_number": 51
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_052.pkl",
+      "sha256": "39bb5eadc0cce9912a7699d23a52fb943a27d5a1f2f3b1db6103b6556ed6a667",
+      "bytes": 334118,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "horn/002",
+      "original_demo_number": 52
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_053.pkl",
+      "sha256": "acd4259836f2c79b91a35b28e574cd1308cd650ae4a4924d90a512ac345dd323",
+      "bytes": 393041,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "ink_bottles/020",
+      "original_demo_number": 53
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_054.pkl",
+      "sha256": "0f4c3b82d9fa1032f0b531a14667b7c4f48276d0bc81db4f12bd55c1cf5b5eaf",
+      "bytes": 404841,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "lava_rock_mortar/001",
+      "original_demo_number": 54
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_055.pkl",
+      "sha256": "c1ef700d2f660d63d1000d48af1d3b3643668e9bed11eede7878aa6954de562b",
+      "bytes": 548831,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "letters/008",
+      "original_demo_number": 55
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_056.pkl",
+      "sha256": "ddfc253b84ae5869f7450526ed975f4bbac01fc45d353dfdf762caf8dcea83d0",
+      "bytes": 526578,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "lettuce/001",
+      "original_demo_number": 56
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_057.pkl",
+      "sha256": "cc416ad48f6c02c18a73cc6bc03b355ab52c20f2c8b4b0de7d5c8e690be784c6",
+      "bytes": 305333,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "lever_corkscrew/002",
+      "original_demo_number": 57
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_058.pkl",
+      "sha256": "c6cb9078d2cbfaeb18810b55e603ba20e77628f1f4cfb5f893e293d1bf6c758e",
+      "bytes": 378628,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "lock/027",
+      "original_demo_number": 58
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_059.pkl",
+      "sha256": "b78f5e357ecd788530456e9d027f75dc71435ad00de34d666f8ac093649dc19c",
+      "bytes": 393043,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "massage_ball/028",
+      "original_demo_number": 59
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_060.pkl",
+      "sha256": "3cc9153e22aeaefc4b136b9e6d07ed331eff7fb4fa4e676a37bc2a87e06580f7",
+      "bytes": 381260,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "massage_gun/000",
+      "original_demo_number": 60
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_061.pkl",
+      "sha256": "420ec4c327aed4d2346d4c5893af1000bacb7483e8953db5cfc3d73582c6ced6",
+      "bytes": 327566,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "mouse/074",
+      "original_demo_number": 61
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_062.pkl",
+      "sha256": "c2247d9838e3f91529605ff49103a799023a4a1dfb94aba3b87449966102f3c0",
+      "bytes": 352464,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "paddle_blade/017",
+      "original_demo_number": 62
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_063.pkl",
+      "sha256": "b06f3c92f738eee0ced09eae232e62458529fbc5da9c3e4080d3fc6881ff31d1",
+      "bytes": 433629,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "pencil_case/015",
+      "original_demo_number": 63
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_064.pkl",
+      "sha256": "90a0415a57c07709b243579c657b2830b1b7cb7e43525e701f22e9b8e7c04ad9",
+      "bytes": 254267,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "pilates_ring/008",
+      "original_demo_number": 64
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/train/shadow_part_065.pkl",
+      "sha256": "2731d42e4f21b5962af177aa4c2e33f6530f3d6596ddb0ddb0011754af584cc3",
+      "bytes": 348531,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train",
+      "object_id": "pineapple/008",
+      "original_demo_number": 65
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_066.pkl",
+      "sha256": "a1c21e377f5deb5ab03f761b78ad82ee4924935bca89a8ff67ae4598a13864fb",
+      "bytes": 247710,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "pinpad/017",
+      "original_demo_number": 66
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_067.pkl",
+      "sha256": "72a6232c5896f66f914481807fd18efd589b056b6319e2875a8e9888ab9479e3",
+      "bytes": 326271,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "pipe_fitting/007",
+      "original_demo_number": 67
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_068.pkl",
+      "sha256": "3d543efcc22c5425e354c0a6252d8bd81e925642c12426c681de9e571137059c",
+      "bytes": 322330,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "purse/035",
+      "original_demo_number": 68
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_069.pkl",
+      "sha256": "d161fc0223b2d9332e1b8f3f360390064696925ab1b7f26c9b6e3b2f20cd0e51",
+      "bytes": 335453,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "swimming_earplugs/001",
+      "original_demo_number": 69
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateObject-v0/validation/shadow_part_070.pkl",
+      "sha256": "f166613304f8c8422787439e74ec35d27663cf30fb05658d81282e75cd79b5ff",
+      "bytes": 366847,
+      "task": "Dexverse-RelocateObject-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "validation",
+      "object_id": "tape/002",
+      "original_demo_number": 70
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-RelocateSphere-v0/shadow_part_001.pkl",
+      "sha256": "1c54ccf94413bff9612589c11e9ef846155c15fec83d671b91bea07026408c42",
+      "bytes": 21236197,
+      "task": "Dexverse-RelocateSphere-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-RotateKnob-v0/shadow_part_001.pkl",
+      "sha256": "789ac0aeff80752373d2e95aa65244623b7f03e654b18532a6dad57cf4d55bb4",
+      "bytes": 14875012,
+      "task": "Dexverse-RotateKnob-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-StackCube-v0/shadow_part_001.pkl",
+      "sha256": "7fac6305e0aae5cdad21f9482b010855285e2e2300bfefa26cfda4d4b3c30c20",
+      "bytes": 22122430,
+      "task": "Dexverse-StackCube-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/grasping/Dexverse-StackCube-v0/shadow_part_002.pkl",
+      "sha256": "8cb25bced979c36b2d9dbaf7b5d8e48eb3c6e41123a3914d7a063e915aaa01a8",
+      "bytes": 12938153,
+      "task": "Dexverse-StackCube-v0",
+      "episodes": 20,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/non_prehensile/Dexverse-TakeBookOffShelf-v0/shadow_part_001.pkl",
+      "sha256": "1fb7de8a1bcfa2d6bb55d1552ede07c55ce9044b85466aff308a0d231ed7f1fa",
+      "bytes": 46389495,
+      "task": "Dexverse-TakeBookOffShelf-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-TurnOnSwitch-v0/shadow_part_001.pkl",
+      "sha256": "5517e5e2fd49ad50b85298de555ccb00168fc3bc0a145a715af8f74ecbea7d8c",
+      "bytes": 8447556,
+      "task": "Dexverse-TurnOnSwitch-v0",
+      "episodes": 50,
+      "runtime_profile": "classic",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-UnscrewCap-v0/shadow_part_001.pkl",
+      "sha256": "5c59e23d9c315cc58680c8175d864d2d7b40c794df783cae1dbc947443ea88f1",
+      "bytes": 61334198,
+      "task": "Dexverse-UnscrewCap-v0",
+      "episodes": 50,
+      "runtime_profile": "current",
+      "split": "train"
+    },
+    {
+      "path": "demonstrations/main/v0/articulation/Dexverse-UnscrewCap-v0/shadow_part_002.pkl",
+      "sha256": "e1b64665e21a3e4cc1fcd2b970d145a6a15c71b9050e76a7c963750f4c64688d",
+      "bytes": 1797454,
+      "task": "Dexverse-UnscrewCap-v0",
+      "episodes": 1,
+      "runtime_profile": "current",
+      "split": "train"
+    }
+  ],
+  "split_episodes": {
+    "train": 2014,
+    "validation": 20
+  },
+  "relocate_object_split": {
+    "train_demos": 50,
+    "train_objects": 46,
+    "validation_demos": 20,
+    "validation_objects": 20,
+    "object_disjoint": true,
+    "excluded_original_demo_number": 71
+  },
+  "default_download_split": "train",
+  "default_download_episodes": 2014
+}

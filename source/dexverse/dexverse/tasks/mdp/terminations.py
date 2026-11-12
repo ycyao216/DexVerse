@@ -185,6 +185,8 @@ def object_upright_and_lifted(
 
 
 def _compare(value: torch.Tensor, target: torch.Tensor | float, op: str, tol: float) -> torch.Tensor:
+    if op == "==":
+        return torch.abs(value - target) <= tol
     if op == ">=":
         return value >= (target - tol)
     if op == ">":
@@ -205,7 +207,7 @@ def joint_reach_threshold(
     tol: float = 0.0,
     reduce: str = "any",
 ) -> torch.Tensor:
-    """Terminate when joint values cross a threshold."""
+    """Terminate at a threshold, or within ``tol`` of it when ``op='=='``."""
     asset: Articulation = env.scene[asset_cfg.name]
     joint_ids = resolve_joint_ids(env, asset_cfg)
     joint_pos = asset.data.joint_pos[:, joint_ids]
@@ -327,8 +329,8 @@ class joint_co_completion(ManagerTermBase):
 
     Success fires when every selected joint is currently satisfied AND the
     spread between first-entry steps (``max - min``) is at most
-    ``window_steps``. Releasing one joint long before the others will not
-    trigger success.
+    ``window_steps``. Holding one joint above the threshold long before the
+    others cross it will not trigger success.
     """
 
     def __init__(self, cfg, env):
@@ -340,6 +342,15 @@ class joint_co_completion(ManagerTermBase):
         if self._first_entry is None or tuple(self._first_entry.shape) != shape or self._first_entry.device != device:
             self._first_entry = torch.full(shape, -1, dtype=torch.long, device=device)
             self._last_step = torch.zeros(shape[0], dtype=torch.long, device=device)
+
+    def reset(self, env_ids=None) -> None:
+        """Clear crossing history for the episodes reset by the manager."""
+        if self._first_entry is None:
+            return
+        if env_ids is None:
+            env_ids = slice(None)
+        self._first_entry[env_ids] = -1
+        self._last_step[env_ids] = 0
 
     def __call__(
         self,
@@ -377,10 +388,12 @@ class joint_co_completion(ManagerTermBase):
 
         satisfied = _compare(value, target, op, tol)
 
-        self._ensure_buffer((env.num_envs, joint_pos.shape[1]), env.device)
+        # env.device is a string in Isaac Lab; comparing it with torch.device
+        # would reinitialize the buffer on every call and erase crossing times.
+        self._ensure_buffer((env.num_envs, joint_pos.shape[1]), joint_pos.device)
 
-        # Detect per-env resets: episode_length_buf is monotone within an
-        # episode, so a drop means the env was reset since the last call.
+        # Also detect resets when called outside the termination manager (for
+        # example by the demo recorder), where reset() is not invoked for us.
         current = env.episode_length_buf.to(dtype=self._first_entry.dtype)
         reset_rows = current < self._last_step
         if reset_rows.any():
@@ -966,8 +979,16 @@ def nutthread_success(
     bolt_head_height: float = 0.01,
     bolt_shank_height: float = 0.025,
     target_thread_turns: float = 1.5,
+    nut_top_height: float = 0.023,
+    min_axis_alignment: float = 0.95,
+    nut_axis_offset: tuple[float, float] = (-0.0002, 0.0),
 ) -> torch.Tensor:
-    """Factory-style NutThread success: centered in XY and deep enough in Z."""
+    """Require centered, aligned insertion to the same depth with either face up.
+
+    The asset origin is below its mesh: its two faces are at nut_base_height
+    and nut_top_height in local Z. Measure from whichever face points toward
+    the bolt head, in the bolt's frame, rather than always using the local base.
+    """
     nut: Articulation = env.scene[nut_cfg.name]
     bolt: Articulation = env.scene[bolt_cfg.name]
 
@@ -976,20 +997,19 @@ def nutthread_success(
     bolt_pos = bolt.data.root_pos_w
     bolt_quat = bolt.data.root_quat_w
 
-    nut_base_local = torch.zeros((env.num_envs, 3), device=env.device, dtype=nut_pos.dtype)
-    nut_base_local[:, 2] = float(nut_base_height)
-    nut_base_pos = nut_pos + quat_apply(nut_quat, nut_base_local)
+    axis = torch.zeros((env.num_envs, 3), device=env.device, dtype=nut_pos.dtype)
+    axis[:, 2] = 1.0
+    alignment = (quat_apply(nut_quat, axis) * quat_apply(bolt_quat, axis)).sum(dim=-1)
+    entry_face_local = torch.zeros_like(axis)
+    entry_face_local[:, :2] = torch.tensor(nut_axis_offset, device=env.device, dtype=nut_pos.dtype)
+    entry_face_local[:, 2] = torch.where(alignment >= 0, float(nut_base_height), float(nut_top_height))
+    entry_face_w = nut_pos + quat_apply(nut_quat, entry_face_local)
+    entry_face_bolt = quat_apply_inverse(bolt_quat, entry_face_w - bolt_pos)
 
-    target_local = torch.zeros((env.num_envs, 3), device=env.device, dtype=bolt_pos.dtype)
-    target_local[:, 2] = float(bolt_head_height + bolt_shank_height - thread_pitch * target_thread_turns)
-    target_pos = bolt_pos + quat_apply(bolt_quat, target_local)
-
-    xy_dist = torch.linalg.vector_norm(target_pos[:, 0:2] - nut_base_pos[:, 0:2], dim=1)
-    z_disp = nut_base_pos[:, 2] - target_pos[:, 2]
-    centered = xy_dist < float(center_dist_thresh)
-    close_or_below = z_disp < float(thread_pitch * success_threshold_turns)
-    success = torch.logical_and(centered, close_or_below)
-    return success
+    centered = entry_face_bolt[:, :2].norm(dim=-1) < float(center_dist_thresh)
+    depth = float(bolt_head_height + bolt_shank_height) - entry_face_bolt[:, 2]
+    required_depth = float(thread_pitch * (target_thread_turns - success_threshold_turns))
+    return centered & (depth > required_depth) & (alignment.abs() >= float(min_axis_alignment))
 
 
 def factory_insert_success(

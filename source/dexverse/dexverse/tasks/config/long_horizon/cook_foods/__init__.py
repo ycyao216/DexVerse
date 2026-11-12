@@ -8,5 +8,5 @@
 from ....utils.registration import register_env
 
 register_env(
-    __name__, "Dexverse-LongHorizon-CookFoods-v0", "long_horizon_cook_foods_cfg", "CookFoodsEnvFloatingDexHandRightCfg"
+    __name__, "Dexverse-LongHorizon-CookFoods-v0", "long_horizon_cook_foods_cfg", "CookFoodsEnvFloatingDexHandsCfg"
 )

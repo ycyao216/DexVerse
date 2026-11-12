@@ -1,0 +1,455 @@
+{
+  "schema_version": 1,
+  "collection": "cross_20",
+  "repo": "dexverse/DexVerse_release",
+  "task_version": "v0",
+  "tasks": 7,
+  "task_hand_pairs": 42,
+  "episodes": 840,
+  "hands": [
+    "allegro",
+    "inspire",
+    "leap",
+    "shadow",
+    "sharpa",
+    "wuji"
+  ],
+  "episodes_per_task_hand": 20,
+  "state_replay": true,
+  "all_episodes_have_T_plus_1_states": true,
+  "verification": "Complete finite saved states, successful source labels, distinct actions within each task/hand, and unchanged episode content. No fresh simulator replay of all 840 episodes in this packaging pass.",
+  "files": [
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "2c4376627d4b420b54edd4886a9182a30bbb0b2d1ca7ea1c9b6985dd67309c76",
+      "bytes": 4980157,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "e69ff91fa94b0589a89224eae91ed03638a9d3f5f15da981b8852632861eccf4",
+      "bytes": 5253962,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "0ac9346905282a66829f9363821374fe67476fac5c8a47d98d9c945d8e69a4b5",
+      "bytes": 4820686,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_leap_right/part_001.pkl",
+      "sha256": "9a4d9e0b724a588a51a96f345aa5fb16fbe7e246eb6a212649ec9eddef50f9e0",
+      "bytes": 5063478,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "a1a288d48245aa7f6e6efd6796b876d16bb5d62e2a99206fbdd38966e4d7f4e6",
+      "bytes": 5444383,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/articulation/Dexverse-OpenFaucet-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "d5f2f83fc042feb14e07bb70bba1b94bb9777a5b44540f4a45f93a144efb5eae",
+      "bytes": 5759373,
+      "task": "Dexverse-OpenFaucet-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "44f9014e8061e94deba229af7c7c7603f5dc333ecc546ece80ac7ff809136936",
+      "bytes": 12410478,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "e35783f8f199b1d8d329de92656d8029789a1976fcd8710e7f051a7feb81db83",
+      "bytes": 9987673,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "9fc8f96e8d3436e7ccfd03d7e6780b4943be05e28f01611a8aa672a1bbf2dbbc",
+      "bytes": 924253,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 1
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_inspire_right/part_002.pkl",
+      "sha256": "a3e3371b43d78c541020713dead1c5ba97efb80fcb32d0a9f9b255a7e40480f0",
+      "bytes": 8718486,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 19
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_leap_right/part_001.pkl",
+      "sha256": "d0448f1e2bf2601bdde1a9bda13eab65d37a50d813059a7e84be34bd06be501c",
+      "bytes": 6702420,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 10
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_leap_right/part_002.pkl",
+      "sha256": "9c4e6983583d93d0f1d2e7d6f0577b37e88ba6e9b766e2b846055a9ca1808586",
+      "bytes": 5355578,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 10
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "4c68337d26b5939cb2a52ff0cc63f3a80ec4902368a3481e01b738d14c989d32",
+      "bytes": 7280048,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 10
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_sharpa_right/part_002.pkl",
+      "sha256": "9422f70ac301f0af5c92e13f8d238314341b829d96aba8752dccf4ded719edd2",
+      "bytes": 8001943,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 10
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "610aa8b29e7862fad282945bbc5fbbb42ac38afa33a62f9936e3b74c6706ff72",
+      "bytes": 7707767,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 8
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-GraspBleach-v0/floating_wuji_right/part_002.pkl",
+      "sha256": "43a343edc1d8564dcd976d1e82f5fb8d77368b2ee955e5b2a4e093dcb4641ac2",
+      "bytes": 11561783,
+      "task": "Dexverse-GraspBleach-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 12
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "8e9c213fae66b0e3e34aa829b7b968e771650ffbb868b3a636bad88d4ad42af8",
+      "bytes": 9272403,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "225dfce1e3e8d8b79e4383ee9f8a9ac94cb0fc4c418e4250f0b3409aef4b711e",
+      "bytes": 9499804,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "e5b5fca1548b1cb121fbde68ba8f74c580f9bb1ac14a21df878e44aeb9636230",
+      "bytes": 8140302,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_leap_right/part_001.pkl",
+      "sha256": "490036f4dc3cb06ed1ae1619d04d2e2def5590107aced5701e4b04c52e9873d5",
+      "bytes": 6373306,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 13
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_leap_right/part_002.pkl",
+      "sha256": "698d98518d02f1cd26c2f1448fb45518c932985e212789b0ce2cb2c8247b2994",
+      "bytes": 3482770,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 7
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "4a075d914ddc9b82c19f8dfb004a2e3d7a9877061a48dcf450b649dccaf69da5",
+      "bytes": 7344900,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalPourCan-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "015e78c9fed2287e293ec2e700de73a2bb121534e2821875d37abcce2f75f480",
+      "bytes": 7950312,
+      "task": "Dexverse-FunctionalPourCan-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "d74839fd00c33bcf833ed20a30f0728a14ec0135eade90c49124ec9808324ced",
+      "bytes": 9597096,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "bf582361ebcbe27395a9aca78e9c0849df27d291b000373ece07f5eff6ec00af",
+      "bytes": 9884457,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "a6d018bfc251d9790cd26d1798cb6a35012230715e80ff0d28b63ff32e5a0bd5",
+      "bytes": 9779270,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_leap_right/part_001.pkl",
+      "sha256": "047a61cc899db049a887c97b5b239bcb2bb580df9bfc9560487b81b7a305653c",
+      "bytes": 10589931,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "1c883d5a90c87e851e992993767109653b5ae6105e08590305bc80e346fe5d81",
+      "bytes": 10171502,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/functional/Dexverse-FunctionalHammerStrike-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "4b0a458ba6b6512f90c1d90caaa20814bb0dfc592bda5bf0ea306ba2cccd027a",
+      "bytes": 13297309,
+      "task": "Dexverse-FunctionalHammerStrike-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "eae02ea8b978f68d42b20cb137802beb509140e4527b9497e3df37c5dd2a2e83",
+      "bytes": 10092627,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "9fa1d9c541560f63e1b53303e7a90e9402e7c409598883192f214fb6ad396ce1",
+      "bytes": 2608628,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 5
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_allegro_right/part_002.pkl",
+      "sha256": "553ee5070c7c5fdeb8e4b337e5b6be76453383df289251ecbe9f850d7f672141",
+      "bytes": 3001233,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 6
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_allegro_right/part_003.pkl",
+      "sha256": "b483c7d128a953e70e002d4959910bcdb0260c1fc4677860bb9ef4b2d9e33584",
+      "bytes": 4375320,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 9
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "f53e8d1a457e2b670fb50b93b5afba45bf33e0b46a7d6d391d2f26cd360f6236",
+      "bytes": 11871421,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_leap_right/part_001.pkl",
+      "sha256": "ba5077f3c3ec890b9376eedef090710eea3cf8b0d715501da3e1f77d8a6a232b",
+      "bytes": 641561,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 1
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_leap_right/part_002.pkl",
+      "sha256": "549efbd5b0487f28a8954f80dc72a6c8abed456d06972fd4be689a416f4298bc",
+      "bytes": 602034,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 1
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_leap_right/part_003.pkl",
+      "sha256": "76a06c90f195192debe702e3a567117eb7f285a1d1cb442e7b6d975c714d259d",
+      "bytes": 4478913,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 5
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_leap_right/part_004.pkl",
+      "sha256": "ef6d0f1ee447ab9da109571da6de190645bdda5cc035df6250609dfbf8ba052e",
+      "bytes": 13102372,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 13
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "b9a2874b67eeefeeaaf9e3617f6a9a53e2729bc88ae67ca81fb4db7b032d0f0f",
+      "bytes": 16668661,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/contact_rich/Dexverse-InsertPen-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "edf5d3de2176fc5dbf23e596457e6d550f6dcc683ec7f063ff6bbdf56a06271d",
+      "bytes": 15129862,
+      "task": "Dexverse-InsertPen-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "1ba959990f9c0ac02c2bd4c9b675952e0aeb2200221e89926ad67cf22e336874",
+      "bytes": 11931102,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "54d1ee47055694435fc446b8470096e2b6cd63da22abb0edebb3dc6c76786bb9",
+      "bytes": 18050378,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "1726fc80f8821dc1c61c230db58bcc45c45557d08d36fe6986fd0978934daa07",
+      "bytes": 19458829,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "47614dd0001ecb27f00e621b232bf651d5975ea0da5a942d7a98936a6fca8df0",
+      "bytes": 28032108,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "88f9904077af924da4b0fa4b913efcf4a6a0355c87d2ea1026567e5a5b42ef50",
+      "bytes": 19421404,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/non_prehensile/Dexverse-PushT-v0/floating_leap_right/part_001.pkl",
+      "sha256": "144b5d5594dda5252af3650b1285a41e2d6c0ebb53632b73514f03b0ac0211d9",
+      "bytes": 26795871,
+      "task": "Dexverse-PushT-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_shadow_right/part_001.pkl",
+      "sha256": "d67093ace1a3b4655bafea987b940283dca0122773f4d72916afeb2f3f6c2b45",
+      "bytes": 12904302,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_shadow_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_inspire_right/part_001.pkl",
+      "sha256": "18daa3f4f30d72343cd084bb019125fe1cf388a6dacf923b5d0a86ed32d18518",
+      "bytes": 16736799,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_inspire_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_leap_right/part_001.pkl",
+      "sha256": "ba0c965cfea86a6a3d2cf6f76531896bbe0cb43c2d9ee601297c11188936f3b2",
+      "bytes": 17731854,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_leap_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_wuji_right/part_001.pkl",
+      "sha256": "e09673d82af61cc8398c92e9533ce41a2bda480e9245a7f3b3509531eedb6121",
+      "bytes": 8583389,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_wuji_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_sharpa_right/part_001.pkl",
+      "sha256": "f4588dffb9e692bf238cc4e100c2d4e57d83a12919c840bc190fd7ff7b878232",
+      "bytes": 9104136,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_sharpa_right",
+      "episodes": 20
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_allegro_right/part_001.pkl",
+      "sha256": "49e75f4d0227090d1253ca42c16490818ff2ee2f04c1f8edacc27d392eae949c",
+      "bytes": 17114378,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 18
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_allegro_right/part_002.pkl",
+      "sha256": "a626dde3afd8eb5ede40698ac8ae1201b86fe56c40bca46ae2dd8258b1eacb90",
+      "bytes": 229887,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 1
+    },
+    {
+      "path": "demonstrations/cross_20/v0/grasping/Dexverse-StackCube-v0/floating_allegro_right/part_003.pkl",
+      "sha256": "284dbe0d365b681c8b5ae4a6e46d4f4f81fc0092e93bb1f1325ae6753eb3fc48",
+      "bytes": 478039,
+      "task": "Dexverse-StackCube-v0",
+      "robot_type": "floating_allegro_right",
+      "episodes": 1
+    }
+  ]
+}

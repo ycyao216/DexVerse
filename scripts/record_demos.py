@@ -34,8 +34,9 @@ Optional arguments:
                               "<dataset_dir>/<task_name>/<task_name>_<time>.pkl". Under Docker,
                               only the relative subpath is kept; the host mount is always used.
     --record_state            Enable recording per-step scene states (T+1 snapshots per episode).
-    --num_demos               Number of demonstrations to record. (default: 0, infinite)
-    --num_success_steps       Number of continuous steps with task success for concluding a demo as successful. (default: 10)
+    --num_demos               Number of demonstrations to record (default: 50).
+                              0 runs until stopped or the distinct-object pool is complete.
+    --num_success_steps       Consecutive successful steps before saving (default: 10).
     --seed                    Seed for the environment's reset/spawn randomization. Default None keeps
                               the task default (DexVerseBaseEnvCfg.seed = 42); -1 draws a random seed.
                               The resolved seed is stored in the pickle metadata.
@@ -50,7 +51,6 @@ import contextlib
 import inspect
 import logging
 import os
-import pickle
 import re
 import time
 from collections.abc import Callable
@@ -58,6 +58,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from dexverse.teleop_utils.recording_io import write_recording
+from dexverse.teleop_utils.seeding import resolve_seed
+from dexverse.teleop_utils.simulation_startup import guard_simulation_startup
 from dexverse.demo_paths import DEXVERSE_DATA_DIR_ENV, get_dexverse_data_dir, resolve_demo_output_path
 from dexverse.benchmark import action_layout, task_identity
 from dexverse.teleop_utils.debug_visualization import add_debug_visualization_args, configure_v1_debug_visualization
@@ -67,6 +70,11 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(description="Record demonstrations for DexVerse environments using VR.")
 parser.add_argument("--task", type=str, required=True, help="Name of the task.")
+parser.add_argument("--collection_object_id", help="RelocateObject pool identity (category/instance); load only this object.")
+parser.add_argument(
+    "--object_cycle_size", type=int, default=None,
+    help="Preloaded object environments cycled on reset (RelocateObject default: 100; 1 disables cycling).",
+)
 parser.add_argument(
     "--teleop_device",
     type=str,
@@ -96,13 +104,14 @@ parser.add_argument(
     help="Enable recording per-step scene states (T+1 snapshots per episode). Always enabled.",
 )
 parser.add_argument(
-    "--num_demos", type=int, default=50, help="Number of demonstrations to record. Set to 0 for infinite."
+    "--num_demos", type=int, default=50,
+    help="Number of demonstrations to record. 0 runs until stopped or the distinct-object pool is complete.",
 )
 parser.add_argument(
     "--num_success_steps",
     type=int,
     default=10,
-    help="Number of continuous steps with task success for concluding a demo as successful. Default is 10.",
+    help="Consecutive successful steps before saving. Default: 10.",
 )
 parser.add_argument(
     "--seed",
@@ -288,6 +297,7 @@ from dexverse.tasks.utils import (  # noqa: E402
     prune_stale_obs_refs,
     strip_camera_cfgs,
 )
+from dexverse.teleop_utils.environment_cycle import ObjectEnvironmentCycle, configure_single_collection_object, configure_object_cycle, single_env_bindings
 from dexverse.teleop_utils.episode_task_state import capture_episode_task_state  # noqa: E402
 from isaaclab.devices.teleop_device_factory import create_teleop_device  # noqa: E402
 from isaaclab.envs import DirectRLEnvCfg, ManagerBasedRLEnvCfg  # noqa: E402
@@ -432,6 +442,7 @@ class TrajectoryPickleRecorder:
         multi_assets=None,
         multi_usds=None,
         active_object_metadata=None,
+        object_asset=None,
     ) -> None:
         if self._active_reset_id is None:
             raise RuntimeError("Cannot start an episode before starting a reset attempt.")
@@ -450,12 +461,16 @@ class TrajectoryPickleRecorder:
         if self._record_state:
             # ``states`` always stores T+1 snapshots: initial state + one state per action step.
             self._active_episode["states"] = [initial_state_pkl]
+            if task_state and "task_runtime" in task_state:
+                self._active_episode["task_states"] = [self._to_pickleable(task_state)]
         if self._record_arm_joint_actions:
             self._active_episode["arm_joint_actions"] = []
         if multi_assets is not None:
             self._active_episode["multi_assets"] = self._to_pickleable(multi_assets)
         if multi_usds is not None:
             self._active_episode["multi_usds"] = self._to_pickleable(multi_usds)
+        if object_asset is not None:
+            self._active_episode["object_asset"] = self._to_pickleable(object_asset)
         if active_object_metadata is not None:
             self._active_episode["active_object_metadata"] = self._to_pickleable(active_object_metadata)
 
@@ -480,12 +495,16 @@ class TrajectoryPickleRecorder:
             return
         arm_joint_actions.append(self._to_pickleable(joint_pos_target))
 
-    def record_state(self, state) -> None:
+    def record_state(self, state, task_state=None) -> None:
         if not self._record_state or self._active_episode is None:
             return
         states = self._active_episode.get("states")
         if not isinstance(states, list):
             return
+        if "task_states" in self._active_episode:
+            if not task_state or "task_runtime" not in task_state:
+                raise ValueError("Missing task runtime for a recorded scene state.")
+            self._active_episode["task_states"].append(self._to_pickleable(task_state))
         states.append(self._to_pickleable(state))
 
     def finalize_episode(self, success: bool = True) -> None:
@@ -521,6 +540,9 @@ class TrajectoryPickleRecorder:
                     f"Episode states length mismatch: got {len(states)}, expected {expected_len} "
                     "(must be T+1: initial + per-step post-state)."
                 )
+            task_states = self._active_episode.get("task_states")
+            if task_states is not None and len(task_states) != expected_len:
+                raise ValueError("Episode task_states must align with all T+1 scene states.")
         self._active_episode["success"] = bool(success)
         episode_index = int(self._active_episode["episode_index"])
         num_steps = int(self._active_episode["num_steps"])
@@ -543,8 +565,7 @@ class TrajectoryPickleRecorder:
         payload["episodes"] = self._episodes
         payload["num_reset_attempts"] = len(self._reset_attempts)
         payload["reset_attempts"] = self._reset_attempts
-        with open(self._output_file, "wb") as fp:
-            pickle.dump(payload, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        write_recording(self._output_file, payload)
 
     @classmethod
     def _to_pickleable(cls, data):
@@ -834,15 +855,29 @@ def create_environment_config() -> tuple["ManagerBasedRLEnvCfg | DirectRLEnvCfg"
         env_cfg = cfg_cls(**override_kwargs)
         env_cfg.sim.device = args_cli.device if args_cli.device is not None else env_cfg.sim.device
         env_cfg.scene.num_envs = 1
+    if args_cli.collection_object_id:
+        if args_cli.task.split(":")[-1] != "Dexverse-RelocateObject-v0" or args_cli.usd_path or args_cli.object_cycle_size not in (None, 1):
+            raise ValueError("--collection_object_id requires the default RelocateObject pool and one environment.")
+        configure_single_collection_object(env_cfg, args_cli.collection_object_id)
+        if args_cli.num_demos != 1:
+            raise ValueError("Single-object collection saves one successful demo per launch; use --num_demos 1.")
+    elif getattr(env_cfg, "teleop_object_cycle_size", 1) > 1 or getattr(args_cli, "object_cycle_size", None) is not None:
+        bank_size = configure_object_cycle(env_cfg, getattr(args_cli, "object_cycle_size", None))
+        if bank_size > 1 and args_cli.num_demos > bank_size:
+            raise ValueError(
+                f"Requested {args_cli.num_demos} distinct-object demos, but the object pool has {bank_size} objects. "
+                "Reduce --num_demos or increase --object_cycle_size."
+            )
     env_cfg.env_name = args_cli.task.split(":")[-1]
 
     # Must come after the cfg_cls(**override_kwargs) rebuild above, which would
     # otherwise reset the seed to the task default (42). ManagerBasedEnv consumes
     # cfg.seed before scene construction, seeding python/numpy/torch/warp, so it
-    # also governs multi-asset/multi-USD random.choice spawn picks. A value of -1
-    # is resolved to a randomly drawn seed and written back into cfg.seed.
+    # also governs multi-asset/multi-USD random.choice spawn picks. Resolve -1
+    # here: Replicator rejects it before Isaac Lab's own sentinel handling.
     if args_cli.seed is not None:
         env_cfg.seed = args_cli.seed
+    env_cfg.seed = resolve_seed(env_cfg.seed)
 
     if "TopDownGrasp" in args_cli.task or "Lift" in args_cli.task:
         if hasattr(env_cfg, "commands") and hasattr(env_cfg.commands, "object_pose"):
@@ -890,10 +925,11 @@ def create_environment(
     env_cfg: "ManagerBasedRLEnvCfg | DirectRLEnvCfg", multi_spawn_trace: MultiSpawnTrace | None = None
 ) -> gym.Env:
     try:
-        if multi_spawn_trace is not None and multi_spawn_trace.enabled:
-            with multi_spawn_trace.capture():
-                return gym.make(args_cli.task, cfg=env_cfg).unwrapped
-        return gym.make(args_cli.task, cfg=env_cfg).unwrapped
+        with guard_simulation_startup():
+            if multi_spawn_trace is not None and multi_spawn_trace.enabled:
+                with multi_spawn_trace.capture():
+                    return gym.make(args_cli.task, cfg=env_cfg).unwrapped
+            return gym.make(args_cli.task, cfg=env_cfg).unwrapped
     except Exception as e:
         logger.exception(f"Failed to create environment: {e}")
         exit(1)
@@ -950,14 +986,14 @@ def _resolve_term_callable(env: gym.Env, term: object) -> Callable:
 _resolve_term_callable._cache = {}
 
 
-def check_success(env: gym.Env, success_term: object | None, success_step_count: int) -> tuple[int, bool]:
+def check_success(env: gym.Env, success_term: object | None, success_step_count: int, env_index: int = 0) -> tuple[int, bool]:
     """Return updated consecutive-success count and whether we've hit the threshold."""
     if success_term is None:
         return success_step_count, False
 
     success_func = _resolve_term_callable(env, success_term)
     success_flags = success_func(env, **success_term.params)
-    if bool(success_flags[0]):
+    if bool(success_flags[env_index]):
         success_step_count += 1
         if success_step_count >= args_cli.num_success_steps:
             print("Success condition met! Recording completed.")
@@ -987,7 +1023,9 @@ def run_simulation_loop(
     success_step_count = 0
     should_reset = False
     reset_reason = "manual_reset"
-    running = False  # Start inactive for VR (user activates with START gesture).
+    running = False  # Start inactive for VR or web START.
+
+
 
     def reset_recording_instance():
         nonlocal should_reset, reset_reason
@@ -1019,6 +1057,9 @@ def run_simulation_loop(
 
     env.sim.reset()
     env.reset()
+    cycle = ObjectEnvironmentCycle(
+        env, teleop_interface, enabled=getattr(env_cfg, "teleop_object_cycle_size", 1) > 1,
+    )
     first_reset_id = trajectory_recorder.start_reset_attempt()
     teleop_interface.reset()
     print(f"Reset ID: {first_reset_id}")
@@ -1032,7 +1073,8 @@ def run_simulation_loop(
     print(f"Record per-step states: {args_cli.record_state}")
     print(f"Environment seed: {getattr(env_cfg, 'seed', None)}")
     print(f"Physics simulation device: {env.device}")
-    print(f"Target Demos: {'Infinite' if args_cli.num_demos == 0 else args_cli.num_demos}")
+    target_demos = args_cli.num_demos or (f"All {env.num_envs} distinct objects" if cycle.enabled else "Infinite")
+    print(f"Target Demos: {target_demos}")
     print("=" * 60)
     print("\nVR Controls:")
     print("  - Use START gesture/button to begin recording")
@@ -1041,6 +1083,7 @@ def run_simulation_loop(
     print("  - Success condition will automatically complete and save the demo")
     print(f"  - Need {args_cli.num_success_steps} consecutive successful steps to mark as successful")
     print("=" * 60)
+
 
     _printed_bodies = False
     _debug_counter = 0
@@ -1063,7 +1106,7 @@ def run_simulation_loop(
                             wrist_body_idx = body_names.index(candidate)
                             break
                     if wrist_body_idx is not None:
-                        body_pose_w = robot.data.body_link_pose_w[0, wrist_body_idx, :7]
+                        body_pose_w = robot.data.body_link_pose_w[cycle.index, wrist_body_idx, :7]
                         _debug_counter += 1
                         if _debug_counter % 60 == 0:
                             quat_wxyz = body_pose_w[3:].cpu().numpy()
@@ -1088,6 +1131,9 @@ def run_simulation_loop(
                 if outcome is not None:
                     print(f"Reset attempt recorded as {outcome}.")
                 handle_reset(env)
+                if not cycle.advance():
+                    print("All objects in this session have a successful demonstration. Collection complete.")
+                    break
                 next_reset_id = trajectory_recorder.start_reset_attempt()
                 teleop_interface.reset()
                 print(f"Reset ID: {next_reset_id}")
@@ -1098,25 +1144,29 @@ def run_simulation_loop(
             if running:
                 # On the first step of a new demo, capture the initial scene state.
                 if not trajectory_recorder.has_active_episode():
-                    initial_scene_state = env.scene.get_state(is_relative=True)
-                    task_state = capture_episode_task_state(env)
+                    initial_scene_state = cycle.scene_state()
+                    task_state = capture_episode_task_state(env, cycle.index, relative_to_env_origin=cycle.enabled)
                     trajectory_recorder.start_episode(
                         initial_state=initial_scene_state,
                         goal_pose=_get_goal_pose_from_task_state(task_state),
                         task_state=task_state,
-                        multi_assets=multi_assets,
-                        multi_usds=multi_usds,
-                        active_object_metadata=_get_active_object_metadata_from_env(env),
+                        multi_assets=single_env_bindings(multi_assets, cycle.index),
+                        multi_usds=single_env_bindings(multi_usds, cycle.index),
+                        object_asset=cycle.object_asset(),
+                        active_object_metadata=_get_active_object_metadata_from_env(env, cycle.index),
                     )
 
                 trajectory_recorder.record_action(action.detach().clone())
-                actions = action.repeat(env.num_envs, 1)
+                actions = cycle.actions(action)
                 step_output = env.step(actions)
                 terminated = step_output[2]
                 truncated = step_output[3]
-                episode_done = bool(torch.logical_or(terminated, truncated)[0])
+                episode_done = bool(torch.logical_or(terminated, truncated)[cycle.index])
                 if episode_done:
                     outcome = trajectory_recorder.finish_reset_without_success(reason="environment_termination")
+                    if cycle.enabled:
+                        env.reset()
+                        cycle.advance()
                     next_reset_id = trajectory_recorder.start_reset_attempt()
                     teleop_interface.reset()
                     success_step_count = 0
@@ -1124,18 +1174,22 @@ def run_simulation_loop(
                     running = False
                     print(f"✗ Reset attempt recorded as {outcome}; auto-reset ID: {next_reset_id}")
                     continue
-                if args_cli.record_state:
-                    post_step_state = env.scene.get_state(is_relative=True)
-                    trajectory_recorder.record_state(post_step_state)
                 if arm_joint_ids is not None:
                     robot = env.scene["robot"]
-                    arm_joint_pos_target = robot.data.joint_pos_target[0, arm_joint_ids]
+                    arm_joint_pos_target = robot.data.joint_pos_target[cycle.index, arm_joint_ids]
                     trajectory_recorder.record_arm_joint_action(arm_joint_pos_target.detach().clone())
 
-                success_step_count, success_reached = check_success(env, success_term, success_step_count)
+                success_step_count, success_reached = check_success(env, success_term, success_step_count, cycle.index)
+                # Save after success evaluation so the snapshot includes this
+                # step's pour/disposal timers and stage latches, before reset.
+                if args_cli.record_state:
+                    post_step_state = cycle.scene_state()
+                    task_state = capture_episode_task_state(env, cycle.index, relative_to_env_origin=cycle.enabled)
+                    trajectory_recorder.record_state(post_step_state, task_state=task_state)
                 if success_reached:
                     successful_reset_id = trajectory_recorder.current_reset_id
                     trajectory_recorder.finalize_episode(success=True)
+                    cycle.mark_success()
                     print(
                         f"✓ Recorded {trajectory_recorder.num_episodes} successful demonstration(s) "
                         f"from reset ID {successful_reset_id}."
@@ -1156,18 +1210,6 @@ def run_simulation_loop(
                     break
             else:
                 env.sim.render()
-
-            if should_reset:
-                outcome = trajectory_recorder.finish_reset_without_success(reason=reset_reason)
-                if outcome is not None:
-                    print(f"Reset attempt recorded as {outcome}.")
-                handle_reset(env)
-                next_reset_id = trajectory_recorder.start_reset_attempt()
-                teleop_interface.reset()
-                print(f"Reset ID: {next_reset_id}")
-                success_step_count = 0
-                should_reset = False
-                running = False
 
             if env.sim.is_stopped():
                 break
@@ -1269,5 +1311,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        simulation_app.close()

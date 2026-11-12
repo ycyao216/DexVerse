@@ -12,7 +12,7 @@ reward (``joint_open_fraction_reward``) and termination
 
 from __future__ import annotations
 
-from dexverse.assets import PARTNET_MOBILITY_ARTICULATIONS_DIR
+from dexverse.assets import DEXVERSE_AUTHORED_ASSETS_DIR
 from isaaclab.actuators.actuator_cfg import ImplicitActuatorCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
@@ -24,7 +24,7 @@ from ... import mdp
 from .articulation_base import ArticulationBaseEnvFloatingDexHandRightCfg
 from .articulation_base.articulation_base_cfg import ARTICULATION_KEY
 
-ASSET_DIR = PARTNET_MOBILITY_ARTICULATIONS_DIR / "door"
+ASSET_DIR = DEXVERSE_AUTHORED_ASSETS_DIR / "door"
 DOOR_USD_PATH = str(ASSET_DIR / "door.usd")
 DOOR_SCALE = (1.5, 1.5, 1.5)
 DOOR_ROT = (0.7071067811865476, 0.0, 0.0, 0.7071067811865476)
@@ -77,7 +77,7 @@ class OpenDoorEnvFloatingDexHandRightCfg(ArticulationBaseEnvFloatingDexHandRight
     articulation_half_height_est: float = 0.0
     articulation_fix_root_link: bool | None = True
     articulation_hinge_stiffness: float = 0.0
-    articulation_hinge_damping: float = 1.0
+    articulation_hinge_damping: float = 0.3
     articulation_handle_damping: float = 0.2
     articulation_handle_friction: float = 0.05
 

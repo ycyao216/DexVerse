@@ -11,7 +11,7 @@ which carries the ArticulationRootAPI) and two temple arms
 (``RevoluteJoint_glasses3_left`` / ``..._right``). Nothing is bolted to the
 world, so the frame is free on the tabletop -- the policy has to pin the frame
 with one hand while the other swings a temple open (mirrors
-:mod:`open_huawei_phone_cfg`, which also has two symmetric hinges).
+:mod:`open_foldable_phone_cfg`, which also has two symmetric hinges).
 
 Hinge convention (from the USD): the left hinge range is ``[-90 deg, 0 deg]``
 and the right hinge range is ``[0 deg, 90 deg]``, both about the frame's local

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import hashlib
+import json
 import pickle
 import subprocess
 import sys
@@ -227,6 +229,7 @@ def test_original_task_and_robot_sources_are_preserved():
     # main worktree or private recordings labelled v0. Skip outside a git checkout.
     if subprocess.run(["git", "cat-file", "-e", "30cc673^{commit}"], cwd=ROOT, capture_output=True).returncode:
         pytest.skip("Official preservation commit is not available")
+    git_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=ROOT, text=True).strip()
     paths = (
         subprocess.check_output(
             [
@@ -239,20 +242,27 @@ def test_original_task_and_robot_sources_are_preserved():
                 "source/dexverse/dexverse/robot_agents/shadow",
                 "source/dexverse/dexverse/visual_purpose.py",
             ],
-            cwd=ROOT,
+            cwd=git_root,
         )
         .decode()
         .splitlines()
     )
-    # Corrected in place, and labelled from LONG_HORIZON_SIM_FIX_REVISIONS by task_identity().
-    corrected_in_place = {
-        "source/dexverse/dexverse/tasks/config/long_horizon/make_coffee/long_horizon_make_coffee_cfg.py",
-        "source/dexverse/dexverse/tasks/config/long_horizon/cook_foods/long_horizon_cook_foods_cfg.py",
-        "source/dexverse/dexverse/tasks/config/long_horizon/microwave_retrieve_place/"
-        "long_horizon_microwave_retrieve_place_cfg.py",
-    }
+    # Only these explicitly reviewed fixes may diverge from the official source.
+    # Pin their contents so an exemption cannot silently admit later changes.
+    approved = json.loads((ROOT / "scripts/env_tools/qol_source_revisions.json").read_text())
+    assert paths, "The original task-source inventory must not be empty"
+    assert set(approved) <= set(paths)
     for path in paths:
-        if path in corrected_in_place:
+        if path in approved:
+            revision = approved[path]
+            assert revision["reason"], path
+            current = ROOT / path
+            if revision["sha256"] is None:
+                assert not current.exists(), path
+                replacement = ROOT / revision["replacement"]
+                assert hashlib.sha256(replacement.read_bytes()).hexdigest() == revision["replacement_sha256"], path
+            else:
+                assert hashlib.sha256(current.read_bytes()).hexdigest() == revision["sha256"], path
             continue
         original = subprocess.check_output(["git", "show", f"30cc673:{path}"], cwd=ROOT)
         if path == "source/dexverse/dexverse/tasks/__init__.py":
@@ -391,13 +401,31 @@ def test_long_horizon_revisions_are_per_task():
     assert len(set(LONG_HORIZON_SIM_FIX_REVISIONS.values())) == len(LONG_HORIZON_SIM_FIX_REVISIONS)
 
 
-def test_recordings_from_before_the_long_horizon_fix_need_an_explicit_override():
-    task = "Dexverse-LongHorizon-MakeCoffee-v0"
-    old = {"task": task, "benchmark_revision": V0_BENCHMARK_REVISION}
+@pytest.mark.parametrize("task,previous_revision", [
+    ("Dexverse-LongHorizon-MakeCoffee-v0", "long-horizon-sim-fixes-v0-2026-11-07"),
+    ("Dexverse-LongHorizon-CookFoods-v0", "long-horizon-cook-foods-bimanual-disposal-v0-2026-11-08"),
+    ("Dexverse-LongHorizon-MicrowaveRetrievePlace-v0", "long-horizon-microwave-fixes-v0-2026-11-07b"),
+])
+def test_long_horizon_light_wrist_physics_rejects_previous_mass_profile(task, previous_revision):
+    # Recorded scene states omit masses/inertias. Replaying old actions under
+    # the new default mass profile therefore requires an explicit decision.
+    previous = {"task": task, "benchmark_revision": previous_revision}
+    with pytest.raises(ValueError, match="does not match"):
+        validate_replay_identity(previous, task)
+    validate_replay_identity(previous, task, explicit_override=True)
+    validate_replay_identity({"task": task, **task_identity(task)}, task)
+
+
+@pytest.mark.parametrize("task", sorted(LONG_HORIZON_SIM_FIX_REVISIONS))
+@pytest.mark.parametrize("revision", [None, V0_BENCHMARK_REVISION])
+def test_recordings_from_before_the_long_horizon_fix_need_an_explicit_override(task, revision):
+    old = {"task": task}
+    if revision is not None:
+        old["benchmark_revision"] = revision
     with pytest.raises(ValueError, match="does not match"):
         validate_replay_identity(old, task)
     validate_replay_identity(old, task, explicit_override=True)
 
 
-def test_unfixed_long_horizon_tasks_keep_the_official_revision():
-    assert task_identity("Dexverse-LongHorizon-OvenBakeSalmon-v0")["benchmark_revision"] == V0_BENCHMARK_REVISION
+def test_other_v0_tasks_keep_the_official_revision():
+    assert task_identity("Dexverse-OpenDrawer-v0")["benchmark_revision"] == V0_BENCHMARK_REVISION

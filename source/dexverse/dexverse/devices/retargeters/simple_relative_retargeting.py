@@ -105,7 +105,7 @@ class SimpleRelativeRetargeter(RetargeterBase):
         super().__init__(cfg)
         self.cfg = cfg
         self._debug_visualization_enabled = cfg.task_version != 1 or cfg.debug_vis
-        # Preserve original marker semantics for v0 while honoring v1's cue switch.
+        # Keep v0's red tracking dots enabled while honoring v1's cue switch.
         if cfg.task_version == 1:
             from dexverse.baseline_v1.visual_purpose import hide_marker_from_cameras as hide_task_marker
         else:
@@ -160,26 +160,32 @@ class SimpleRelativeRetargeter(RetargeterBase):
         hide_task_marker(self._markers)
         self._markers.set_visibility(self._debug_visualization_enabled)
 
-        canonical_point_marker_cfg = VisualizationMarkersCfg(
-            prim_path="/Visuals/simple_relative_canonical_hand_keypoints",
-            markers={
-                "joint": sim_utils.SphereCfg(
-                    radius=0.004,
-                    visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.8, 1.0)),
-                )
-            },
-        )
-        self._canonical_markers = VisualizationMarkers(canonical_point_marker_cfg)
-        hide_task_marker(self._canonical_markers)
-        self._canonical_markers.set_visibility(self._debug_visualization_enabled)
+        # These extra overlays obscure the hand/object during collection.
+        # Keep them opt-in independently of the ordinary red tracking dots.
+        self._canonical_markers = None
+        if self._debug_visualization_enabled and cfg.show_canonical_keypoints:
+            canonical_point_marker_cfg = VisualizationMarkersCfg(
+                prim_path="/Visuals/simple_relative_canonical_hand_keypoints",
+                markers={
+                    "joint": sim_utils.SphereCfg(
+                        radius=0.004,
+                        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 0.8, 1.0)),
+                    )
+                },
+            )
+            self._canonical_markers = VisualizationMarkers(canonical_point_marker_cfg)
+            hide_task_marker(self._canonical_markers)
+            self._canonical_markers.set_visibility(True)
 
-        wrist_frame_cfg = FRAME_MARKER_CFG.copy()
-        wrist_frame_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
-        self._wrist_markers = VisualizationMarkers(
-            wrist_frame_cfg.replace(prim_path="/Visuals/simple_relative_wrist_frames")
-        )
-        hide_task_marker(self._wrist_markers)
-        self._wrist_markers.set_visibility(self._debug_visualization_enabled)
+        self._wrist_markers = None
+        if self._debug_visualization_enabled and cfg.show_wrist_frames:
+            wrist_frame_cfg = FRAME_MARKER_CFG.copy()
+            wrist_frame_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
+            self._wrist_markers = VisualizationMarkers(
+                wrist_frame_cfg.replace(prim_path="/Visuals/simple_relative_wrist_frames")
+            )
+            hide_task_marker(self._wrist_markers)
+            self._wrist_markers.set_visibility(True)
 
         if cfg.initialize_dex_retargeting:
             self._initialize_dex_retargeters()
@@ -803,7 +809,7 @@ class SimpleRelativeRetargeter(RetargeterBase):
         hand_data_by_target: dict[DeviceBase.TrackingTarget, Any],
     ) -> None:
         """Visualize canonicalized hand joints, translated back to the wrist position."""
-        if not self._debug_visualization_enabled:
+        if not self._debug_visualization_enabled or self._canonical_markers is None:
             return
         canonical_joint_positions_world = []
         for hand, hand_data in hand_data_by_target.items():
@@ -827,7 +833,7 @@ class SimpleRelativeRetargeter(RetargeterBase):
 
     def _visualize_wrist_poses(self) -> None:
         """Visualize tracked wrist poses as frame markers."""
-        if not self._debug_visualization_enabled:
+        if not self._debug_visualization_enabled or self._wrist_markers is None:
             return
         wrist_positions = []
         wrist_orientations = []
@@ -894,7 +900,11 @@ class SimpleRelativeRetargeterCfg(RetargeterCfg):
     task_version: int = 0
     """Use v1 wrist continuity/vector settings only for explicitly upgraded tasks."""
     debug_vis: bool = True
-    """v1 follows the task debug switch; v0 ignores this field to preserve its visuals."""
+    """Controls tracking dots for v1; v0 keeps the red tracking dots enabled."""
+    show_canonical_keypoints: bool = False
+    """Opt in to cyan canonical-hand debugging points."""
+    show_wrist_frames: bool = False
+    """Opt in to the tracked wrist coordinate frames."""
     wrist_filter: WristFilterCfg | None = None
     """Reject tracking glitches and smooth the wrist pose. None (default) uses the raw pose."""
     continuous_wrist_euler: bool = False

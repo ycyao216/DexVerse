@@ -127,7 +127,7 @@ class SqueezeScissorsEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDex
         # wherever they are left.
 
         # Reset the scissors AND their padding stands as one rigid rig (a single
-        # shared transform), like slide_utility_knife_cfg / open_huawei_phone_cfg,
+        # shared transform), like slide_utility_knife_cfg / open_foldable_phone_cfg,
         # so the stands stay cradling the scissors at any sampled yaw. The base
         # reset moves only the articulation, which would yaw the scissors off the
         # (static) stands.

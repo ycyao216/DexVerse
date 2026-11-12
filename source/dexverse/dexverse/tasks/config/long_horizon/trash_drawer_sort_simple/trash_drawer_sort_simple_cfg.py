@@ -132,6 +132,7 @@ _TABLE_CLEANING_DRAWER_SPECS: tuple[tuple[str, str, str, str, float, float], ...
     ("advil", "Advil", "Advil", "model_Advil_69323.usd", 0.05, 1.0),
     ("blue_stapler", "BlueStapler", "blue_stapler", "stapler.usd", 0.30, 1.0),
     ("charger", "Charger", "charger001", "model_charger.usd", 0.10, 1.0),
+    # Preserve the original geometry used by the Dexbench recordings.
     ("headphone", "Headphone", "headphone", "headphone.usd", 0.20, 1.0),
     ("marker", "Marker", "marker", "model_Office_Marker_B293D6D4_BlackDryEraseMarker_1_69323.usd", 0.03, 1.0),
 )
@@ -642,6 +643,41 @@ def _ensure_active_object_state(env) -> tuple[torch.Tensor, torch.Tensor]:
     if not hasattr(env, "_active_trash_objects"):
         env._active_trash_objects = torch.ones(env.num_envs, n_trash, device=env.device, dtype=torch.bool)
     return env._active_drawer_objects, env._active_trash_objects
+
+
+def capture_cleaning_state(env, env_index):
+    """Save the random object subset and latch history alongside scene poses."""
+    _ensure_active_object_state(env)
+    _ensure_trash_can_latch_state(env)
+    names = ("_active_drawer_objects", "_active_trash_objects", "_trash_can_latched",
+             "_trash_can_prev_q", "_trash_can_cooldown_s", "episode_length_buf")
+    lid_ids = env.scene["trash_can"].find_joints(TRASH_CAN_LID_JOINT_NAMES)[0]
+    return {"version": 1, "buffers": {name: getattr(env, name)[env_index].detach().clone() for name in names},
+            "lid_target": env.scene["trash_can"].data.joint_pos_target[env_index, lid_ids].detach().clone()}
+
+
+def restore_cleaning_state(env, snapshot, env_index):
+    if snapshot.get("version") != 1:
+        raise ValueError("Unsupported cleaning task-state version")
+    _ensure_active_object_state(env)
+    _ensure_trash_can_latch_state(env)
+    old_active = torch.cat((env._active_drawer_objects[env_index], env._active_trash_objects[env_index])).clone()
+    for name in ("_active_drawer_objects", "_active_trash_objects", "_trash_can_latched",
+                 "_trash_can_prev_q", "_trash_can_cooldown_s", "episode_length_buf"):
+        target = getattr(env, name)
+        target[env_index] = torch.as_tensor(snapshot["buffers"][name], device=env.device, dtype=target.dtype)
+    trash = env.scene["trash_can"]
+    lid_ids = trash.find_joints(TRASH_CAN_LID_JOINT_NAMES)[0]
+    env_ids = torch.tensor([env_index], device=env.device)
+    _apply_trash_can_latch_state(env, env_ids, lid_ids, env._trash_can_latched[env_ids])
+    # The reset latch holds slightly open; preserve that target as well as the
+    # open/closed targets used after a press.
+    target = torch.as_tensor(snapshot["lid_target"], device=env.device, dtype=trash.data.joint_pos.dtype)
+    trash.set_joint_position_target(target.reshape(1, -1), joint_ids=lid_ids, env_ids=env_ids)
+    active = torch.cat((env._active_drawer_objects[env_index], env._active_trash_objects[env_index]))
+    for index in torch.nonzero(active != old_active, as_tuple=False).flatten().tolist():
+        env.scene[ALL_TABLE_CLEANING_NAMES[index]].set_visibility(bool(active[index]), env_ids=env_ids)
+    _install_active_object_metadata_getter(env)
 
 
 def _sample_active_mask(
@@ -1491,7 +1527,9 @@ class TrashDrawerSortSimpleEnvCfg(dexverse_base_env.DexVerseBaseEnvCfg):
         # rejection sampling against the drawer + trash + already-placed
         # objects each reset.
 
-        self.episode_length_s = 40.0
+        # Historical recordings run up to 61 s; retain their motion without
+        # forcing recollection or speeding up contact-rich sorting stages.
+        self.episode_length_s = 90.0
 
         # Inherited ``privileged.hand_tips_state_b`` defaults to LEAP-hand
         # body names (``["base", "thumb_fingertip", ...]``). Swap to the
@@ -1505,7 +1543,11 @@ class TrashDrawerSortSimpleEnvCfg(dexverse_base_env.DexVerseBaseEnvCfg):
                 self.robot_config.hand_tips_body_names
             )
 
+        self.capture_task_state = capture_cleaning_state
+        self.restore_task_state = restore_cleaning_state
         setup_floating_teleop(self)
+        from dexverse.replay_rigid_object import configure_replay_rigid_objects
+        configure_replay_rigid_objects(self.scene)
         self.configure_debug_vis()
 
     def configure_debug_vis(self) -> None:

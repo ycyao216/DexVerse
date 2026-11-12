@@ -58,6 +58,8 @@ import h5py
 import numpy as np
 import torch
 
+from dexverse.recording_compat import recorded_task_name
+
 # Observation paths inside a ``create_demo_files_sequential.py`` HDF5 demo group.
 _POINTCLOUD_GROUP = "obs/pointcloud"
 _PROPRIO_GROUP = "obs/proprio"
@@ -201,7 +203,7 @@ def convert(
     point_cloud = agent_pos = actions = None  # for summary
 
     with h5py.File(in_path, "r") as hf_in, h5py.File(out_path, "w") as hf_out:
-        task = str(hf_in.attrs.get("task", "unknown"))
+        task = recorded_task_name(str(hf_in.attrs.get("task", "unknown")))
         observation_preset = str(hf_in.attrs.get("observation_preset", ""))
         demo_names = sorted(hf_in["data"].keys(), key=lambda n: int(n.split("_")[-1]))
 

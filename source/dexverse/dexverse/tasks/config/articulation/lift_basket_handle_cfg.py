@@ -49,7 +49,7 @@ class LiftBasketHandleEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDe
         "RevoluteJoint_basket_22_right",
         "RevoluteJoint_basket_22_left",
     ]
-    success_threshold: float = 0.5
+    success_threshold: float = 0.9
 
     def __post_init__(self):
         super().__post_init__()

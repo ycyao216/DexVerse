@@ -1,0 +1,112 @@
+{
+  "source/dexverse/dexverse/tasks/config/articulation/__init__.py": {
+    "reason": "Canonical foldable-phone registration; bimanual cooking description. Registration and phone-physics regression tests cover the identity changes.",
+    "sha256": "b0f48eb104949a96593b7e51105d4353065c3aca552249aae82eb06294ca1432"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/cabinet_double_door.py": {
+    "reason": "Require simultaneous left/right cabinet completion; covered by test_cabinet_co_completion.py.",
+    "sha256": "7d48baf4a063182c6c3703ff519c340134eeb98cdaf821cc2da4e169a27c4280"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/graspbucket_cfg.py": {
+    "reason": "Correct upright bucket angle and tolerance; covered by test_graspbucket_collection.py.",
+    "sha256": "52e02f6bfaf1a71d74d6112d6a6bb801b1d2173bee4779e2e55b26de5b9b01c0"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/lift_basket_handle_cfg.py": {
+    "reason": "Accepted handle lift threshold tuning from 0.5 to 0.9 radians.",
+    "sha256": "0b86431ae36d22a83503e9ad69b753b7d52bf37c47b338b920fd1fd7108b81a1"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/open_glasses_cfg.py": {
+    "reason": "Documentation reference follows the generic foldable-phone module rename.",
+    "sha256": "40ea8889c0048b35c80cec38926361bd909948cb941e5aa4552525740496aca7"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/open_huawei_phone_cfg.py": {
+    "reason": "Name-only migration to open_foldable_phone_cfg.py; test_foldable_phone_identity.py compares original physics and state bindings.",
+    "sha256": null,
+    "replacement": "source/dexverse/dexverse/tasks/config/articulation/open_foldable_phone_cfg.py",
+    "replacement_sha256": "e3ebbe3f4063eac0d950afea929eeda69e08c4bd8adb20352e30d31a2c238c3f"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/opencabinet_cfg.py": {
+    "reason": "Already merged asset path correction to the PartNet mobility storage layout.",
+    "sha256": "c1cbe26de36352700b8c913f33127294b4b9d2b2d5d55b690e5ee25b3a015766"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/opendoor_cfg.py": {
+    "reason": "Use the authored door asset and reduce hinge damping for teleoperation.",
+    "sha256": "e78761963847516ac9ff091f8792324ea1969c9390f2bfdc0bf3bad4ff84ea4e"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/squeeze_scissors_cfg.py": {
+    "reason": "Documentation reference follows the generic foldable-phone module rename.",
+    "sha256": "8cd7636357e7a2f001144223a6efc5509c07cd0112badb39f4541f4451c16fcf"
+  },
+  "source/dexverse/dexverse/tasks/config/articulation/unscrew_cap_cfg.py": {
+    "reason": "Visual-only cap markings and distinct body/cap colors, preserving source USD collision geometry.",
+    "sha256": "27a19f3e5ffc160eb707bee0271cd4f6fd26eba9d9527719236131f1b1b03e9c"
+  },
+  "source/dexverse/dexverse/tasks/config/bimanual/bimanual_contact_links.py": {
+    "reason": "Resolve physical contact segments across supported hands; covered by test_bimanual_handover.py.",
+    "sha256": "b0e0cb58f395f0db23639405b55429d47a4a7bd95750866d0e37edae3374b695"
+  },
+  "source/dexverse/dexverse/tasks/config/bimanual/bimanual_handover_cfg.py": {
+    "reason": "Handover task state, physical contact filters and English progress panel; covered by test_bimanual_handover.py.",
+    "sha256": "d9f74004728d2e6fd4e4b9de3e27f9e399941d87e4fd14b172da5dcfb12d96d6"
+  },
+  "source/dexverse/dexverse/tasks/config/contact_rich/nutthread_cfg.py": {
+    "reason": "Correct nut/thread orientation and reset handling; covered by test_nutthread_orientation.py.",
+    "sha256": "369d062b295577c67d9227d1de76a57248f7b57b5bd6e1dfd2597b2259efb374"
+  },
+  "source/dexverse/dexverse/tasks/config/grasping/grasp_two_items_cfg.py": {
+    "reason": "Accepted smaller primitive objects and removal of rolling sphere from the collection task.",
+    "sha256": "52a5d92129e2e1f1f0dc895bbd30ad846beac4f4aa28d99a64b80953d28ca12a"
+  },
+  "source/dexverse/dexverse/tasks/config/grasping/relocate_object_cfg.py": {
+    "reason": "Object cycling, visible goal, environment-relative observations; covered by test_environment_cycle.py.",
+    "sha256": "72344faf4244e3423d7558a1de810fa8fa47503db4275675cf032e01f54f458d"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/cook_foods/__init__.py": {
+    "reason": "Canonical foldable-phone registration; bimanual cooking description. Registration and phone-physics regression tests cover the identity changes.",
+    "sha256": "0fc589f852f29ee1d63959fcd87bf0c7656a5aee43a8f5daade498301fe81089"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/cook_foods/long_horizon_cook_foods_cfg.py": {
+    "reason": "Revision-labelled bimanual cooking, disposal and wrist tuning; cooking, state and collection regressions.",
+    "sha256": "c7070ebd142b62d0fd4cb1ae7135b6f8f1e6b6b9fdaa1d2a1c7698a03111687e"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/make_coffee/long_horizon_make_coffee_cfg.py": {
+    "reason": "Revision-labelled coffee physics, feedback and wrist tuning; coffee, state and collection regressions.",
+    "sha256": "ae90a5d57ac21e6d67432b122659b0445c65ca354f945f2ab74e0ecfb8d9cbda"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/microwave_retrieve_place/long_horizon_microwave_retrieve_place_cfg.py": {
+    "reason": "Revision-labelled microwave physics and wrist tuning; collection and task-state regressions.",
+    "sha256": "234f5a5ddf39f50c2b6efd4cb3d457388f52103083f1a5c6dec05e68ce589658"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/oven_bake_salmon/long_horizon_oven_bake_salmon_cfg.py": {
+    "reason": "Revision-labelled seasoning shakers and task progress; baking feedback regressions.",
+    "sha256": "4a041302368e7302a765639c9eda616aa6c91c9d50f7b51aa3bb8cfa2da7f314"
+  },
+  "source/dexverse/dexverse/tasks/config/long_horizon/trash_drawer_sort_simple/trash_drawer_sort_simple_cfg.py": {
+    "reason": "Revision-labelled cleaning task using original headphone asset; cleaning state regressions.",
+    "sha256": "fb545f461052bf52493cfd4d1ae3e4adad094f4be47bec2ca57c8560a72fc9fc"
+  },
+  "source/dexverse/dexverse/tasks/config/non_prehensile/push_small_sphere_obstacle_slope_cfg.py": {
+    "reason": "Already merged obstacle spacing fix; test_pusht_obstacles.py and simulator obstacle regression.",
+    "sha256": "e742a26fda40f804b5ea7cba9a96d87a782e5757d696c0960234df934c351cb5"
+  },
+  "source/dexverse/dexverse/tasks/config/non_prehensile/pusht_cfg.py": {
+    "reason": "Already merged environment-relative goal observations; goal/PushT regressions.",
+    "sha256": "78b2340b483ceabd281bb2f569d203358ed8ae47dab7e6ac2566ffaeb411803c"
+  },
+  "source/dexverse/dexverse/tasks/config/robot_init.py": {
+    "reason": "Already merged robot wrist initialization fix; test_robot_wrist_init.py.",
+    "sha256": "54f7d99ac04fcbdb06cafd19b6f3b160f6ea60af653cb404d99176671c511047"
+  },
+  "source/dexverse/dexverse/tasks/dexverse_base_env_cfg.py": {
+    "reason": "Multi-hand and optional debug visualizations; debug/control-profile regressions.",
+    "sha256": "5b24faf174c20bb2e615ae114af285286059eeead517324c12f766cd1e25ce44"
+  },
+  "source/dexverse/dexverse/tasks/mdp/resets.py": {
+    "reason": "Preserve task-managed entities on resets and enforce object placement; reset-exclusion and geometry regressions.",
+    "sha256": "06cc833ed45c579a9adc86438827d733a08b3b0864b2156def866c3ecbf2875f"
+  },
+  "source/dexverse/dexverse/tasks/mdp/terminations.py": {
+    "reason": "Cabinet co-completion and bucket orientation success fixes; cabinet/bucket regression tests.",
+    "sha256": "343033ab870ec500732ef37d2ccaa556733b0b7e0ae6571ace713fa0f077864e"
+  }
+}

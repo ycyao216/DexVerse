@@ -13,8 +13,8 @@ out again does not count. They stay free of Isaac Lab imports so they can run in
 tests.
 
 Geometry was measured in the real scene with the microwave at its spawn pose: the
-cavity spans x 0.147-0.439, y -0.257-0.081 and z 0.650-0.886 in the world, and the
-dish (root at the centre of its base, see ``dish.py``) rests on its floor at z 0.650. Both
+cavity spans x 0.147-0.439, y -0.257-0.081 and z 0.6515-0.886 in the world, and the
+dish (root at the centre of its base, see ``dish.py``) rests on its floor at z 0.6515. Both
 doors start closed and swing about vertical hinges. A door 18 degrees ajar, the old
 "shut" threshold, leaves the microwave's free edge 13 cm open.
 """
@@ -25,7 +25,7 @@ import math
 
 import torch
 
-from ..check_utils import announce_once, axis_tilt, ever_held, print_status, rotate_inverse, track
+from ..check_utils import announce_once, axis_tilt, ever_held, print_status, rotate_inverse, status_due, track
 
 TASK_LABEL = "Microwave"
 
@@ -40,7 +40,9 @@ DIAL_ON_RAD = math.radians(18.0)
 
 # Cavity interior in the microwave's root frame (root at world (0.3, -0.15, 0.77)).
 # Local -X is the door side.
-CAVITY_MIN = (-0.153, -0.107, -0.120)
+# Shared with the asset preparation so the support and success check agree.
+MICROWAVE_FLOOR_TOP_LOCAL_Z = -0.3386  # unscaled PartNet asset coordinates
+CAVITY_MIN = (-0.153, -0.107, MICROWAVE_FLOOR_TOP_LOCAL_Z * 0.35)
 CAVITY_MAX = (0.139, 0.231, 0.116)
 # The dish base must be this far behind the door plane. Shutting the door is what
 # proves the whole dish is in.
@@ -143,7 +145,7 @@ def report_status(
     dial_joints: tuple[str, ...],
 ) -> None:
     """Tell the teleoperator what the current stage, or the finished state, is missing."""
-    if env.num_envs != 1 or not bool(waiting[0]):
+    if env.num_envs != 1 or not bool(waiting[0]) or not status_due(env):
         return
     if bool(ever_held(env, "spill", waiting)[0]):
         print_status(env, TASK_LABEL, ["the food tipped over, so this attempt cannot succeed, reset"])

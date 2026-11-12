@@ -5,11 +5,13 @@
 
 """Simulator-independent identity of the task-upgrade development suite.
 
-The original 100 v0 registrations remain unchanged, except for the long-horizon
-tasks in ``LONG_HORIZON_SIM_FIX_REVISIONS``, whose physics, teleop and success checks
-were corrected in place under a new revision. Twenty baseline families also have a
+The v0 suite retains its task IDs apart from the generic foldable-phone rename.
+The long-horizon tasks in ``LONG_HORIZON_SIM_FIX_REVISIONS`` have physics,
+teleop and success checks corrected in place under a new revision. Twenty baseline families also have a
 v1 implementation, selected by an explicit Gym version suffix.
 """
+
+from .recording_compat import RETIRED_RECORDING_TASKS, normalize_recording_identity
 
 V0_BENCHMARK_REVISION = "official-v0-30cc673"
 BENCHMARK_REVISION = "baseline-v1-2026-09-08"
@@ -22,9 +24,11 @@ DISPENSER_SMALL_CUP_REVISION = "dispenser-small-cup-v1-2026-09-09"
 PUSH_T_RODS_REVISION = "push-t-goal-rods-15cm-v1-2026-09-10"
 # Per task, so changing one task does not invalidate another task's recordings.
 LONG_HORIZON_SIM_FIX_REVISIONS = {
-    "Dexverse-LongHorizon-MakeCoffee-v0": "long-horizon-sim-fixes-v0-2026-11-07",
-    "Dexverse-LongHorizon-CookFoods-v0": "long-horizon-cook-foods-fixes-v0-2026-11-07b",
-    "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0": "long-horizon-microwave-fixes-v0-2026-11-07b",
+    "Dexverse-LongHorizon-MakeCoffee-v0": "long-horizon-coffee-light-wrist-v0-2026-11-08",
+    "Dexverse-LongHorizon-CookFoods-v0": "long-horizon-cook-foods-bimanual-disposal-light-wrist-v0-2026-11-08",
+    "Dexverse-LongHorizon-MicrowaveRetrievePlace-v0": "long-horizon-microwave-light-wrist-v0-2026-11-08",
+    "Dexverse-LongHorizon-OvenBakeSalmon-v0": "long-horizon-baking-shakers-progress-v0-2026-11-08",
+    "Dexverse-LongHorizon-TrashDrawerSortSimple-v0": "long-horizon-clean-table-original-headphone-v0-2026-11-10",
 }
 
 BASELINE_TASKS = (
@@ -127,7 +131,7 @@ def task_identity(task: str) -> dict:
     if task in LONG_HORIZON_SIM_FIX_REVISIONS:
         return {"task_version": 0, "benchmark_revision": LONG_HORIZON_SIM_FIX_REVISIONS[task],
                 "task_source_revision": "local-long-horizon-sim-fixes"}
-    if task in LEGACY_UPGRADE_TASKS or not task.startswith("Dexverse-") or not task.endswith("-v0"):
+    if task in RETIRED_RECORDING_TASKS or task in LEGACY_UPGRADE_TASKS or not task.startswith("Dexverse-") or not task.endswith("-v0"):
         raise ValueError(f"Unknown canonical task identity: {task}")
     return {"task_version": 0, "benchmark_revision": V0_BENCHMARK_REVISION, "task_source_revision": V0_SOURCE_REVISION}
 
@@ -136,6 +140,7 @@ def validate_replay_identity(payload: dict, target_task: str, explicit_override:
     """Never silently replay a known pre-versioned upgrade as official v0."""
     if explicit_override:
         return  # CLI override is a deliberate provenance decision, recorded separately.
+    payload = normalize_recording_identity(payload)
     imported = payload.get("demo_import") or {}
     if imported.get("compatibility") == "needs_review":
         raise ValueError(
@@ -150,6 +155,11 @@ def validate_replay_identity(payload: dict, target_task: str, explicit_override:
             f"--task-override {LEGACY_UPGRADE_TASKS[source_task]} explicitly."
         )
     expected = task_identity(target_task)["benchmark_revision"]
+    if target_task in LONG_HORIZON_SIM_FIX_REVISIONS and revision != expected:
+        raise ValueError(
+            f"Recording revision {revision!r} does not match corrected long-horizon task {target_task!r}. "
+            "Review the original scene and success rules before using --task-override explicitly."
+        )
     if target_task == "Dexverse-PushT-v1" and revision != PUSH_T_RODS_REVISION:
         raise ValueError(
             "Push-T v1 now includes ten low orange rods around the goal with 15 cm minimum gaps, "

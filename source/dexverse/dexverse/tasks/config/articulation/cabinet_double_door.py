@@ -35,6 +35,10 @@ CABINET_DOUBLE_DOOR_USD_PATH = str(STORAGE_FURNITURE_REVOLUTE_DIR / "44781" / "m
 CABINET_DOOR_JOINT_NAMES = ("target_joint_revolute", "joint_11")
 CABINET_DOOR_INIT_OPEN_ANGLE_RAD = math.radians(10.0)
 CABINET_DOOR_SUCCESS_RATIO = 0.8
+CABINET_SCALE = (0.4, 0.4, 0.4)
+# The USD origin is not at the cabinet's vertical center. Its lowest geometry
+# is z=-0.723071 m; seat that bottom 2 mm above the tabletop after scaling.
+CABINET_ROOT_HEIGHT = 0.723071 * CABINET_SCALE[2] + 0.002
 
 
 @configclass
@@ -47,18 +51,21 @@ class CabinetDoubleDoorEnvFloatingDexHandRightCfg(ArticulationBaseEnvFloatingDex
 
     robot_type: str = "floating_shadow_bimanual"
     articulation_usd_path: str = CABINET_DOUBLE_DOOR_USD_PATH
-    articulation_scale: tuple = (0.4, 0.4, 0.4)
-    articulation_init_pos: tuple = (0.45, 0.0, 0.0)
+    articulation_scale: tuple = CABINET_SCALE
+    articulation_init_pos: tuple = (0.20, 0.0, 0.0)
     articulation_init_rot: tuple = (1.0, 0.0, 0.0, 0.0)
-    articulation_half_height_est: float = 0.2165
+    articulation_half_height_est: float = CABINET_ROOT_HEIGHT
 
     articulation_fix_root_link: bool | None = True
+    # Keep both handles in the bimanual workspace throughout reset sampling.
+    articulation_reset_pose_range: dict = {"x": [0.0, 0.0], "y": [-0.05, 0.05], "z": [0.0, 0.0]}
 
     # Name both joints explicitly — a catch-all regex would also match any
     # internal hinges and break the co-completion check.
     success_joint_names: tuple[str, ...] = CABINET_DOOR_JOINT_NAMES
     success_threshold: float = CABINET_DOOR_SUCCESS_RATIO
-    # Allowed gap between each joint's first-reach time, in seconds.
+    # Both doors must cross 72 degrees within this many simulation seconds
+    # of each other and remain above the threshold together.
     success_window_s: float = 1.0
 
     def __post_init__(self):

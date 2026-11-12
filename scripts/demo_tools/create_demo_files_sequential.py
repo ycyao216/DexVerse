@@ -3,12 +3,12 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Sequential, single-env sibling of :mod:`create_demo_files`.
+"""Replay teleoperation episodes sequentially, restoring each recorded object.
 
 Where :mod:`create_demo_files` replays N episodes in N parallel envs, this
-script builds a single env (``num_envs=1``) and replays one episode at a
-time in a Python loop. Before each episode it calls ``env.sim.reset()`` to
-match the recorder's physics restart, then ``env.reset_to(...)``,
+script normally builds a single env and replays one episode at a time in a
+Python loop. Object-cycling sessions use one slot per distinct object.
+Between episodes it calls ``env.reset_to(...)``,
 which routes through ``ManagerBasedEnv._reset_idx`` and therefore fires
 the event manager's ``reset`` mode — so randomizers like
 ``reset_environment_background`` (HDRI) and ``reset_table_texture`` get
@@ -22,10 +22,9 @@ a drop-in replacement for downstream consumers (IL training pipelines,
 Trade-offs vs the parallel version:
   * Much slower (no parallelism over episodes); use this when the
     per-episode randomization matters more than wall-clock time.
-  * Multi-asset / multi-USD envs are not supported here: the asset
-    binding is baked at ``gym.make`` time, and a per-episode switch
-    would require rebuilding the env (huge startup cost). A warning is
-    printed and env_id 0 keeps whatever the first episode picked.
+  * Object-cycling recordings preload one environment per distinct recorded
+    object and replay each episode in the matching slot. Legacy multi-asset
+    recordings without explicit object identity retain their old behavior.
 
 Example::
 
@@ -51,7 +50,7 @@ from _active_object_masks import apply_recorded_active_masks
 from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(
-    description="Sequential single-env replayer for dexverse teleop pickles.",
+    description="Sequential replayer for dexverse teleop pickles.",
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 
@@ -284,8 +283,12 @@ import h5py  # noqa: E402
 import isaaclab_tasks  # noqa: F401, E402
 import numpy as np  # noqa: E402
 from dexverse.tasks.utils import parse_env_cfg, prune_stale_obs_refs, strip_camera_cfgs  # noqa: E402
+from dexverse.teleop_utils.environment_cycle import (
+    configure_replay_object_bank, replay_object_env_index, select_scene_state,
+)
 from dexverse.teleop_utils.episode_task_state import restore_episode_task_state  # noqa: E402
 from dexverse.benchmark import task_identity, validate_replay_identity  # noqa: E402
+from dexverse.recording_compat import normalize_recording_identity, recording_output_label  # noqa: E402
 from isaaclab.managers import TerminationTermCfg as DoneTerm  # noqa: E402
 from isaaclab.managers.manager_base import ManagerTermBase  # noqa: E402
 
@@ -310,15 +313,25 @@ _BATCH_FORMAT = "dexverse_trajectory_batch"
 
 
 def _load_trajectory_pickle(path: str) -> dict:
+    from dexverse.recording_compat import normalize_recording_identity
+
     with open(path, "rb") as fp:
         payload = pickle.load(fp)
     if not isinstance(payload, dict):
         raise ValueError(f"File {path!r} is not a valid pickle dictionary.")
     fmt = payload.get("format")
-    if fmt == _SINGLE_FORMAT:
+    if fmt in (_SINGLE_FORMAT, "dexbench_trajectory"):
         if "episodes" not in payload:
             raise ValueError(f"Trajectory pickle {path!r} has no 'episodes' entry.")
-        return payload
+        if fmt == "dexbench_trajectory":
+            payload = dict(payload)
+            payload["format"] = _SINGLE_FORMAT
+            original = {key: payload[key] for key in ("task", "env_name") if payload.get(key)}
+            for key, value in original.items():
+                if value.startswith("Dexbench-"):
+                    payload[key] = "Dexverse-" + value[len("Dexbench-"):]
+            payload.setdefault("recorded_task_identity", original)
+        return normalize_recording_identity(payload)
     if fmt == _BATCH_FORMAT:
         raise ValueError(
             f"Pickle {path!r} is a batch trajectory ({_BATCH_FORMAT!r}); use replay_demos.py for merged bundles."
@@ -656,6 +669,7 @@ class PerPickleH5Writer:
         initial_obs: dict[str, np.ndarray],
         final_obs: dict[str, np.ndarray],
         terminations: dict[str, list[bool]] | None = None,
+        object_asset: dict | None = None,
     ) -> None:
         group_name = f"demo_{self._counter}"
         self._counter += 1
@@ -665,6 +679,8 @@ class PerPickleH5Writer:
         g.attrs["num_samples"] = len(actions)
         g.attrs["success"] = bool(success) if success is not None else False
         g.attrs["has_success_flag"] = success is not None
+        if object_asset is not None:
+            g.attrs["object_asset"] = json.dumps(object_asset)
 
         if len(actions) > 0:
             self._dataset(g, "actions", np.stack(actions, axis=0).astype(np.float32, copy=False))
@@ -759,13 +775,13 @@ class VideoRecorder:
         self._current_path = self._output_dir / f"episode_{episode_index:05d}.mp4"
         self._writer = None  # lazy on first frame
 
-    def capture(self) -> None:
+    def capture(self, env_id: int = 0) -> None:
         if not self._enabled or self._current_path is None:
             return
         rgb = self._read_rgb_tensor()
         if rgb is None:
             return
-        frame = rgb[0].detach().cpu().numpy()
+        frame = rgb[env_id].detach().cpu().numpy()
         frame = self._normalize_frame(frame)
         if self._writer is None:
             self._writer = self._imageio.get_writer(
@@ -856,7 +872,7 @@ def _demo_h5_suffix() -> str:
 
 
 def _output_path_for_group(group: PickleGroup) -> Path:
-    out_name = group.output_stem + _demo_h5_suffix()
+    out_name = recording_output_label(group.output_stem) + _demo_h5_suffix()
     if args_cli.output_dir is None:
         return group.anchor_dir / out_name
     demos_root = args_cli.demos_root.expanduser().resolve()
@@ -865,11 +881,11 @@ def _output_path_for_group(group: PickleGroup) -> Path:
         rel = group.anchor_dir.resolve().relative_to(demos_root)
     except ValueError:
         rel = Path(group.anchor_dir.name)
-    return out_root / rel / out_name
+    return out_root / recording_output_label(str(rel)) / out_name
 
 
 def _video_dir_for_group(group: PickleGroup, output_path: Path) -> Path:
-    stem = group.output_stem
+    stem = recording_output_label(group.output_stem)
     if args_cli.video_dir is None:
         return output_path.parent / "videos" / stem
     demos_root = args_cli.demos_root.expanduser().resolve()
@@ -878,21 +894,16 @@ def _video_dir_for_group(group: PickleGroup, output_path: Path) -> Path:
         rel = group.anchor_dir.resolve().relative_to(demos_root).parent
     except ValueError:
         rel = Path()
-    return out_root / rel / stem
+    return out_root / recording_output_label(str(rel)) / stem
 
 
 # ============================================================================
-# Env build (single env)
+# Env build
 # ============================================================================
 
 
 def _build_env_for_pickle(payload: dict):
-    """Construct a single-env runtime that matches the pickle's task/robot.
-
-    Multi-asset / multi-USD spawns are *not* rebound here. With one env there
-    is one slot, and rebuilding the env per episode would dominate runtime.
-    We warn and let the spawner pick its default (typically asset 0).
-    """
+    """Construct one replay slot per recorded object, reused across episodes."""
     dataset_env_name = payload.get("env_name") or payload.get("task")
     env_name = dataset_env_name
     if args_cli.task_override is not None:
@@ -906,6 +917,8 @@ def _build_env_for_pickle(payload: dict):
     env_cfg = parse_env_cfg(env_name, device=args_cli.device, num_envs=1, json_path=json_path)
 
     override_kwargs: dict = {}
+    if payload.get("usd_path") is not None and hasattr(env_cfg, "usd_path"):
+        override_kwargs["usd_path"] = payload["usd_path"]
     robot_type = payload.get("robot_type")
     if args_cli.robot_type_override is not None:
         robot_type = args_cli.robot_type_override
@@ -924,7 +937,8 @@ def _build_env_for_pickle(payload: dict):
     if args_cli.seed is not None:
         env_cfg.seed = args_cli.seed
 
-    if _has_multi_asset_or_usd(env_cfg.scene):
+    configure_replay_object_bank(env_cfg, payload.get("episodes", []))
+    if _has_multi_asset_or_usd(env_cfg.scene) and not hasattr(env_cfg, "replay_object_paths"):
         print(
             "  [warn] this env uses multi-asset / multi-USD spawns. Sequential mode "
             "cannot rebind per episode without rebuilding the env each time, so "
@@ -1030,13 +1044,17 @@ def _replay_one_episode(
         return None
 
     states_seq = episode.get("states") if args_cli.set_state else None
+    task_states_seq = episode.get("task_states") if args_cli.set_state else None
+    if task_states_seq is not None and len(task_states_seq) != T + 1:
+        raise ValueError(f"episode['task_states'] must have T+1={T+1} entries in {label}.")
     if args_cli.set_state and (states_seq is None or len(states_seq) != T + 1):
         raise ValueError(
             f"--set-state requires episode['states'] of length T+1={T+1} for episode {ep_index} in {label}."
         )
 
     skip = _entities_to_skip_for_robot_type_change(source_robot_type, target_robot_type)
-    env_ids_one = torch.tensor([0], device=env.device, dtype=torch.long)
+    env_index = replay_object_env_index(env_cfg, episode)
+    env_ids_one = torch.tensor([env_index], device=env.device, dtype=torch.long)
 
     with torch.inference_mode():
         # Match record_demos.handle_reset, including before the first episode.
@@ -1046,7 +1064,7 @@ def _replay_one_episode(
         # reset_to fires _reset_idx -> event_manager.apply(mode="reset"), so the
         # HDRI / table-texture randomizers resample for this episode. Then the
         # recorded scene state is laid on top.
-        live_state = env.scene.get_state(is_relative=True)
+        live_state = select_scene_state(env.scene.get_state(is_relative=True), env_index)
         initial_state = _build_replay_state(
             _tensorize_state(episode["initial_state"], env.device),
             live_state,
@@ -1057,7 +1075,7 @@ def _replay_one_episode(
         skipped_task_state = restore_episode_task_state(
             env,
             episode.get("task_state"),
-            env_index=0,
+            env_index=env_index,
             legacy_goal_pose=episode.get("goal_pose"),
         )
         if skipped_task_state:
@@ -1066,7 +1084,7 @@ def _replay_one_episode(
             _refresh_after_set_state(env)
         _get_runtime_obs(env)
 
-        initial_flat = capture.capture(0)
+        initial_flat = capture.capture(env_index)
         term_keys = list(initial_flat.keys())
         obs_buf: dict[str, list[np.ndarray]] = {k: [] for k in term_keys}
         next_obs_buf: dict[str, list[np.ndarray]] = {k: [] for k in term_keys}
@@ -1087,7 +1105,7 @@ def _replay_one_episode(
 
         if video is not None:
             video.start_episode(ep_index)
-            video.capture()
+            video.capture(env_index)
 
         step_bar = tqdm(
             range(T),
@@ -1107,12 +1125,13 @@ def _replay_one_episode(
                     f"Recorded action dim {action_t.numel()} != env action dim "
                     f"{action_dim} in episode {ep_index} of {label}."
                 )
-            action_batched = action_t.unsqueeze(0)
+            action_batched = torch.zeros(env.num_envs, action_dim, device=env.device)
+            action_batched[env_index] = action_t
 
             if args_cli.set_state:
                 step_state = _build_replay_state(
                     _tensorize_state(states_seq[step_idx + 1], env.device),
-                    env.scene.get_state(is_relative=True),
+                    select_scene_state(env.scene.get_state(is_relative=True), env_index),
                     extra_skip_entity_names=skip,
                 )
                 env.scene.reset_to(step_state, env_ids_one, is_relative=True)
@@ -1125,23 +1144,28 @@ def _replay_one_episode(
                 # replayed demos before this (Aug 2026).
                 if isinstance(getattr(env, "episode_length_buf", None), torch.Tensor):
                     env.episode_length_buf[env_ids_one] += 1
+                if task_states_seq is not None:
+                    skipped = restore_episode_task_state(env, task_states_seq[step_idx + 1], env_index=env_index)
+                    if skipped:
+                        raise ValueError(f"Could not restore recorded task state: {skipped}")
+                    _refresh_after_set_state(env)
                 _set_last_action(env, action_batched)
                 _get_runtime_obs(env, update_history=True)
             else:
                 env.step(action_batched)
 
-            post_flat = capture.capture(0)
+            post_flat = capture.capture(env_index)
             for k, v in last_flat.items():
                 obs_buf[k].append(v)
             for k, v in post_flat.items():
                 next_obs_buf[k].append(v)
-            action_np = action_batched[0].detach().cpu().numpy().astype(np.float32)
+            action_np = action_batched[env_index].detach().cpu().numpy().astype(np.float32)
             actions_buf.append(action_np)
             source_actions_buf.append(action_np)
             last_flat = post_flat
 
             if video is not None:
-                video.capture()
+                video.capture(env_index)
 
             # Debug trace of the cut-sweep internals (DEXVERSE_CUTSWEEP_TRACE=<csv path>).
             _trace_path = os.environ.get("DEXVERSE_CUTSWEEP_TRACE")
@@ -1186,7 +1210,7 @@ def _replay_one_episode(
                     if term_value is None:
                         terminations_buf[term_name].append(False)
                     else:
-                        terminations_buf[term_name].append(bool(term_value[0].item()))
+                        terminations_buf[term_name].append(bool(term_value[env_index].item()))
 
         if len(actions_buf) != T:
             raise RuntimeError(f"Episode {ep_index} interrupted: captured {len(actions_buf)}/{T} steps")
@@ -1201,6 +1225,7 @@ def _replay_one_episode(
             initial_obs=initial_flat,
             final_obs=last_flat,
             terminations=terminations_buf,
+            object_asset=episode.get("object_asset"),
         )
         if video is not None:
             video.finalize_episode()
@@ -1284,7 +1309,9 @@ def _convert_one_group(group: PickleGroup) -> tuple[int, int, int]:
             term_order_by_group=capture.term_names_by_group,
             source_benchmark_revision=payload.get("benchmark_revision"),
             source_action_layout=payload.get("action_layout"),
-            source_task=payload.get("env_name") or payload.get("task"),
+            source_task=(payload.get("recorded_task_identity") or {}).get("env_name")
+            or (payload.get("recorded_task_identity") or {}).get("task")
+            or payload.get("env_name") or payload.get("task"),
             source_sim_device=payload.get("sim_device"),
         )
         writer._h5.attrs["set_state"] = bool(args_cli.set_state)

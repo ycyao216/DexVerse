@@ -130,7 +130,15 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Read remote inventory, no demo downloads")
     parser.add_argument("--legacy", action="store_true", help="Explicit old unversioned v0 dataset layout")
     parser.add_argument("--require-complete", action="store_true", help="Fail before fetching if selected tasks are missing/partial/skipped")
+    parser.add_argument("--main", action="store_true", help="Download the approved v0 Shadow state-demo collection")
+    parser.add_argument("--cross_20", action="store_true", help="Download the six-hand, seven-task state-demo collection")
+    parser.add_argument("--link-baseline-only", action="store_true", help="Create baseline links for existing category-layout demos, offline")
     args = parser.parse_args()
+    if args.main or args.cross_20 or args.link_baseline_only:
+        if any((args.baseline, args.all, args.category, args.task, args.pattern, args.legacy, args.require_complete)):
+            parser.error("Download named collections separately from baseline/versioned selections")
+        from download_collections import main as download_collections
+        return download_collections()
     try:
         patterns = _build_patterns(args)
     except ValueError as exc:

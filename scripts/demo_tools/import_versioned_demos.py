@@ -24,6 +24,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "source/dexverse"))
 from dexverse.benchmark import BASELINE_PAIRS, LEGACY_UPGRADE_TASKS, task_identity  # noqa: E402
+from dexverse.recording_compat import recorded_task_name  # noqa: E402
 
 DEST = ROOT / "source/dexverse/demonstrations"
 IDENTITY_KEYS = (
@@ -90,7 +91,7 @@ def load_compatible(path):
 
 
 def canonical_v0(task):
-    return task.replace("Dexbench-FixateThenManipulate-", "Dexverse-").replace("Dexbench-", "Dexverse-")
+    return recorded_task_name(task.replace("Dexbench-FixateThenManipulate-", "Dexverse-").replace("Dexbench-", "Dexverse-"))
 
 
 def category(task):

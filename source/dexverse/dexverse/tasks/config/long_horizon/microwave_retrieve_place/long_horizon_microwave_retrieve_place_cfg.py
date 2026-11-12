@@ -8,7 +8,8 @@
 Task intent
 ~~~~~~~~~~~
 A microwave (closed) and a small fridge both sit on the table; a plate of food
-spawns INSIDE the closed fridge. The fridge door faces -Y and, when open, fouls
+spawns INSIDE the closed fridge. The fridge door faces diagonally toward the
+operator (-X/-Y) and, when open, fouls
 the microwave door, so the fridge must be SHUT before the microwave can be
 opened. The sequence the policy / teleoperator must perform, in order, is::
 
@@ -53,8 +54,8 @@ Asset notes
   (door) face open so food can sit inside and be pulled out -- the food-cavity
   analogue of the microwave's :func:`_open_microwave_cavity_mouth`. It is scaled
   down (``FRIDGE_SCALE``), seated
-  with its bottom flush on the table top, and yawed +90 deg about Z so the door
-  faces world ``-Y``. The door is driven by a *friction-detent*
+  with its bottom flush on the table top, and yawed +45 deg about Z so the door
+  faces world ``-X/-Y``. The door is driven by a *friction-detent*
   :class:`ImplicitActuatorCfg` (``stiffness=0`` -> no setpoint spring; low
   static/dynamic ``friction`` + ``armature`` hold it where the hand leaves it but
   let it swing easily). The food is placed on the interior floor as an offset
@@ -71,7 +72,7 @@ import isaaclab.sim as sim_utils
 import torch
 from dexverse.assets import PARTNET_MOBILITY_ARTICULATIONS_DIR, SYNTHESIS_DIR
 from isaaclab.actuators import ImplicitActuatorCfg
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.devices.openxr import XrCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -89,15 +90,16 @@ from .... import mdp
 from ...floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG, setup_floating_teleop
 from ..check_utils import clear_stage_latches
 from ..handling import (
+    configure_cpu_camera_copies,
+    configure_light_virtual_wrist_links,
     grip_material_event,
-    show_by_state,
-    tune_hand_for_carrying,
-    tune_teleop_for_carrying,
+    tune_wrist_damping,
     tune_wrist_camera_bodies,
 )
 from .checks import (
     FRIDGE_OPEN_RAD,
     FRIDGE_SHUT_RAD,
+    MICROWAVE_FLOOR_TOP_LOCAL_Z,
     MICROWAVE_OPEN_RAD,
     MICROWAVE_SHUT_RAD,
     dial_turned,
@@ -105,7 +107,6 @@ from .checks import (
     door_at_most,
     finished,
     food_placed,
-    microwave_running,
     report_status,
 )
 from .dish import build_handled_dish_usd
@@ -166,10 +167,14 @@ def _open_microwave_cavity_mouth(
     with no limits, so they get stops at +/- ``dial_limit_deg``.
 
     The colliders live behind an **instanceable** reference, so the collisions
-    group is de-instanced first to make the individual pieces authorable. Result
-    is cached next to the source as ``<stem>__cavityprep_v4.usd`` and rebuilt only
-    when the source is newer (bump the suffix when this logic changes so stale
-    caches are not reused). Returns the source path unchanged on any error /
+    group is de-instanced first to make the individual pieces authorable.
+    The inner floor gets an explicit cube collider: the imported floor's collision
+    API is on an Xform rather than its mesh, and the dish otherwise falls through
+    to the table, 5 cm below the visible floor and the placement check.
+
+    The result is cached next to the source as ``<stem>__cavityprep_v5.usd`` and
+    rebuilt only when the source is newer (bump the suffix when this logic changes
+    so stale caches are not reused). Returns the source path unchanged on any error /
     missing ``pxr`` / nothing to remove, so it never blocks task load.
     """
     src = Path(usd_path)
@@ -181,7 +186,7 @@ def _open_microwave_cavity_mouth(
     except ImportError:
         return str(src)
 
-    cleaned = src.with_name(f"{src.stem}__cavityprep_v4.usd")
+    cleaned = src.with_name(f"{src.stem}__cavityprep_v5.usd")
     if cleaned.exists() and cleaned.stat().st_mtime >= src.stat().st_mtime:
         return str(cleaned)
 
@@ -270,6 +275,15 @@ def _open_microwave_cavity_mouth(
         UsdGeom.Imageable(sill).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
         UsdPhysics.CollisionAPI.Apply(sill.GetPrim())
 
+        # Match the visible inner liner. Author physics on the Cube itself so
+        # PhysX has a real support surface, independent of the imported Xforms.
+        floor = UsdGeom.Cube.Define(stage, f"{root}/base/cavity_floor")
+        floor.GetSizeAttr().Set(1.0)
+        floor.AddTranslateOp().Set(Gf.Vec3d(0.02255, 0.17735, MICROWAVE_FLOOR_TOP_LOCAL_Z - 0.006))
+        floor.AddScaleOp().Set(Gf.Vec3f(0.9209, 0.9635, 0.012))
+        UsdGeom.Imageable(floor).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
+        UsdPhysics.CollisionAPI.Apply(floor.GetPrim())
+
         # Give the (mass=0) knob links a real mass so their near-zero-inertia
         # joints can actually be turned by fingertip contact.
         for knob in knob_link_names:
@@ -289,7 +303,7 @@ def _open_microwave_cavity_mouth(
         stage.GetRootLayer().Export(str(cleaned))
         logger.info(
             "Opened microwave cavity mouth in %s -> %s (removed %d front slab(s); "
-            "added plinth sill; set knob mass=%s; rest of body kept solid).",
+            "added plinth sill and cavity floor; set knob mass=%s; rest of body kept solid).",
             src.name,
             cleaned.name,
             removed,
@@ -339,8 +353,10 @@ def _open_fridge_cavity(
     mouth.
 
     The link geometry lives behind **instanceable** references, so every
-    instanceable prim is de-instanced first to make the collider pieces
-    authorable. Result is cached next to the source as ``<stem>__cavity_v1.usd``
+    instanceable prim is de-instanced first to make the collider pieces authorable.
+    A light matte plane covers the top of the retained floor for hand visibility;
+    it adds no collider and does not change the support height.
+    Result is cached next to the source as ``<stem>__cavity_v2.usd``
     and rebuilt only when the source is newer (bump the suffix when this logic
     changes). Returns the source path unchanged on any error / missing ``pxr`` /
     nothing to remove so it never blocks task load.
@@ -349,11 +365,11 @@ def _open_fridge_cavity(
     if not src.is_file():
         return str(src)
     try:
-        from pxr import Gf, Usd, UsdGeom, UsdPhysics  # type: ignore
+        from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade  # type: ignore
     except ImportError:
         return str(src)
 
-    cleaned = src.with_name(f"{src.stem}__cavity_v1.usd")
+    cleaned = src.with_name(f"{src.stem}__cavity_v2.usd")
     if cleaned.exists() and cleaned.stat().st_mtime >= src.stat().st_mtime:
         return str(cleaned)
 
@@ -405,9 +421,11 @@ def _open_fridge_cavity(
             return str(src)
         height = z1 - z0
 
-        # Deactivate the full-height sealing collider(s); keep the thin shelf/floor.
+        # Deactivate children before parents: some asset versions put CollisionAPI
+        # on both the Xform and its mesh. Removing the parent first expires the
+        # mesh prim and used to abort the prep, silently returning the raw asset.
         removed = 0
-        for prim, world_range in shapes:
+        for prim, world_range in reversed(shapes):
             mn, mx = world_range.GetMin(), world_range.GetMax()
             if (mx[2] - mn[2]) >= full_height_frac * height:
                 prim.SetActive(False)
@@ -435,10 +453,37 @@ def _open_fridge_cavity(
             UsdGeom.Imageable(cube).CreateVisibilityAttr().Set(UsdGeom.Tokens.invisible)
             UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
 
+        # Use the real shelf's upper face, not the cabinet's underside. The
+        # visual plane sits 0.35 mm above it at the task's scale to avoid flicker.
+        shelves = [
+            bounds for _, bounds in shapes
+            if bounds.GetMax()[2] - bounds.GetMin()[2] < full_height_frac * height
+        ]
+        shelf = min(shelves, key=lambda bounds: bounds.GetMax()[2])
+        lo, hi = shelf.GetMin(), shelf.GetMax()
+        floor_z = hi[2] + 0.001
+        floor = UsdGeom.Mesh.Define(stage, f"{root}/base/cavity_floor_surface")
+        floor.CreatePointsAttr([
+            (lo[0], y0 + t, floor_z), (x1 - t, y0 + t, floor_z),
+            (x1 - t, y1 - t, floor_z), (lo[0], y1 - t, floor_z),
+        ])
+        floor.CreateFaceVertexCountsAttr([4])
+        floor.CreateFaceVertexIndicesAttr([0, 1, 2, 3])
+        floor.CreateSubdivisionSchemeAttr(UsdGeom.Tokens.none)
+        floor.CreateDoubleSidedAttr(True)
+        material = UsdShade.Material.Define(stage, f"{root}/Looks/FridgeFloor")
+        shader = UsdShade.Shader.Define(stage, f"{material.GetPath()}/Shader")
+        shader.CreateIdAttr("UsdPreviewSurface")
+        shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.72, 0.75, 0.78))
+        shader.CreateInput("emissiveColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.04))
+        shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.85)
+        material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
+        UsdShade.MaterialBindingAPI.Apply(floor.GetPrim()).Bind(material)
+
         stage.GetRootLayer().Export(str(cleaned))
         logger.info(
             "Opened fridge cavity in %s -> %s (deactivated %d sealing collider(s); "
-            "added back/sides/top wall colliders; -X front left open for the hand).",
+            "added back/sides/top wall colliders and a visible floor; -X front left open for the hand).",
             src.name,
             cleaned.name,
             removed,
@@ -531,21 +576,20 @@ KNOB_LINK_MASS = 0.05
 
 # PartNet 10797 minifridge: authored ~1.07 x 0.89 x 1.52 m with the body min at
 # local z=-0.746 and the door (link_1) on the local -X face. It sits ON the table
-# (bottom flush with the table top) at FRIDGE_SCALE, yawed +90 deg about Z so the
-# door faces world -Y. The door is revolute ``joint_1`` (0..180 deg);
+# (bottom flush with the table top) at FRIDGE_SCALE, yawed +45 deg about Z so the
+# door faces diagonally toward the operator (-X/-Y). The door is revolute
+# ``joint_1`` (0..180 deg);
 # ``base``+``link_0`` are the fixed body, ``link_1`` the door.
 FRIDGE_SCALE_S = 0.35
 FRIDGE_SCALE = (FRIDGE_SCALE_S, FRIDGE_SCALE_S, FRIDGE_SCALE_S)
-FRIDGE_YAW = math.pi / 2.0  # local -X door -> world -Y
+FRIDGE_YAW = math.pi / 4.0  # 45 degrees toward the operator from the previous +90-degree yaw
 FRIDGE_ROT = R.from_euler("z", FRIDGE_YAW).as_quat(scalar_first=True)  # (w, x, y, z)
 FRIDGE_BOTTOM_LOCAL_Z = -0.746  # asset min-z; bottom sits on the table
-# On-table xy (ROUGH -- tune to taste). Placed +Y (behind) the microwave: the
-# fridge door (faces -Y, hinge on its +X edge) swings its free edge toward -Y/+X,
-# down into the microwave door's swing region, so the OPEN fridge door fouls the
-# microwave door -- the fridge must be shut before the microwave can be opened.
-# The two closed bodies stay clear of each other in y.
-FRIDGE_CENTER_X = -0.2
-FRIDGE_CENTER_Y = 0.35
+# Move 10 cm forward (+X) and 5 cm left (+Y) with the rotation. This keeps the
+# open fridge door in the microwave door's swing while clearing its full sweep
+# when the fridge is shut. The fixed bodies remain separated on the table.
+FRIDGE_CENTER_X = -0.1
+FRIDGE_CENTER_Y = 0.40
 
 FRIDGE_DOOR_JOINT = "joint_1"
 FRIDGE_DOOR_LIMIT = math.radians(180.0)  # authored door range 0..180 deg
@@ -565,12 +609,12 @@ FRIDGE_DAMPING = 0.2
 # =====================================================================
 
 # The dish's root is at the centre of its base, +Z up, handle along local +X. A
-# ceramic dish of stew weighs about half a kilo. It is yawed -90 deg so the handle
-# points at the fridge door (world -Y) and is the first thing the hand reaches.
+# ceramic dish of stew weighs about half a kilo. Rotate it with the fridge so
+# the handle points toward the door (fridge-local -X) and is reached first.
 FOOD_SCALE = (1.0, 1.0, 1.0)
 FOOD_MASS = 0.5
 FOOD_HALF_HEIGHT_EST = 0.0
-FOOD_INIT_ROT = (math.cos(-math.pi / 4), 0.0, 0.0, math.sin(-math.pi / 4))
+FOOD_INIT_ROT = R.from_euler("z", FRIDGE_YAW - math.pi).as_quat(scalar_first=True)
 # Placeholder spawn xy (overwritten in __post_init__ to the in-fridge location).
 FOOD_INIT_X = 0.0
 FOOD_INIT_Y = FRIDGE_CENTER_Y
@@ -578,9 +622,9 @@ FOOD_INIT_CLEARANCE_FROM_TABLE = 0.02
 
 # Food spawns INSIDE the minifridge as an offset from the fridge base (asset
 # local frame: -X is the door/front). It is dropped just above the interior floor
-# and settles onto it. The dish centre sits at world y 0.40, so its handle, which
-# reaches 15.9 cm toward the door, ends clear of the closed door's inner face
-# (world y 0.213); any closer and the handle spawns inside the door.
+# and settles onto it. Its centre is 5 cm behind the fridge origin; its handle
+# reaches 15.9 cm toward the door and stays clear of the closed door's inner
+# face. Both the position and handle orientation follow the fridge yaw.
 FRIDGE_FOOD_FLOOR_LOCAL_Z = -0.746  # interior floor == asset bottom (food rests near table top)
 FRIDGE_FOOD_LOCAL_X = 0.143  # toward the back (+X face); the handle reaches the door
 FRIDGE_FOOD_LOCAL_Y = 0.0
@@ -595,15 +639,6 @@ def _yaw_rotate_xy(x: float, y: float, yaw: float) -> tuple[float, float]:
 # In-cavity goal for the place-tracking reward (height above the table top; xy is
 # the microwave centre). Success uses the cavity box in ``checks.py`` instead.
 FOOD_PLACE_Z_OFFSET = 0.04
-
-# Window light shown while the microwave runs (door shut, a dial turned): a thin
-# warm panel just in front of the door's glass, which measures y -0.257-0.063 and
-# z 0.668-0.869 at x 0.123 in the world with the door shut. Offsets are from the
-# microwave root. Visual only, and fixed in place like the microwave itself.
-MICROWAVE_LIGHT_OFFSET = (-0.1785, 0.053, -0.0015)
-MICROWAVE_LIGHT_SIZE = (0.001, 0.316, 0.197)
-MICROWAVE_LIGHT_COLOR = (1.0, 0.55, 0.1)
-MICROWAVE_LIT_PRIMS = {1: ("MicrowaveLight",)}
 
 LONG_HORIZON_STAGE_GRAPH_KEY = "long_horizon.microwave_retrieve_place"
 
@@ -703,7 +738,6 @@ def microwave_success(env, task_key: str) -> torch.Tensor:
     finished_now = finished(env, DOOR_JOINT, DIAL_JOINTS)
     flags = mdp.evaluate_stage_graph(env, task_key=task_key, persistent=True)
     report_status(env, ~(stages_done & finished_now), flags, FRIDGE_DOOR_JOINT, DOOR_JOINT, DIAL_JOINTS)
-    show_by_state(env, "microwave_light", MICROWAVE_LIT_PRIMS, microwave_running(env, DOOR_JOINT, DIAL_JOINTS).long())
     return stages_done & finished_now
 
 
@@ -1105,7 +1139,7 @@ class LongHorizonMicrowaveRetrievePlaceEnvCfg(dexverse_base_env.DexVerseBaseEnvC
         self.scene.microwave.init_state.pos = (MICROWAVE_CENTER_X, MICROWAVE_CENTER_Y, microwave_z)
 
         # Minifridge sits ON the table (its authored min-z flush with the table
-        # top), door facing -Y.
+        # top), door facing diagonally toward the operator (-X/-Y).
         fridge_z = table_top_z + (-FRIDGE_BOTTOM_LOCAL_Z) * FRIDGE_SCALE_S
         self.scene.fridge.init_state.pos = (FRIDGE_CENTER_X, FRIDGE_CENTER_Y, fridge_z)
         self.scene.fridge.init_state.rot = FRIDGE_ROT
@@ -1128,19 +1162,7 @@ class LongHorizonMicrowaveRetrievePlaceEnvCfg(dexverse_base_env.DexVerseBaseEnvC
 
         # Stage "place" goal: inside the microwave cavity (xy at the microwave
         # centre, z just above the cavity floor / table top).
-        mx, my, mz = self.scene.microwave.init_state.pos
-        light = tuple(base + offset for base, offset in zip((mx, my, mz), MICROWAVE_LIGHT_OFFSET))
-        self.scene.microwave_light = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/MicrowaveLight",
-            spawn=sim_utils.CuboidCfg(
-                size=MICROWAVE_LIGHT_SIZE,
-                visible=False,
-                visual_material=sim_utils.PreviewSurfaceCfg(
-                    diffuse_color=MICROWAVE_LIGHT_COLOR, emissive_color=MICROWAVE_LIGHT_COLOR
-                ),
-            ),
-            init_state=AssetBaseCfg.InitialStateCfg(pos=light),
-        )
+        mx, my, _ = self.scene.microwave.init_state.pos
         self.terminations.success = DoneTerm(
             func=microwave_success, params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY}
         )
@@ -1219,8 +1241,12 @@ class LongHorizonMicrowaveRetrievePlaceEnvFloatingDexHandRightCfg(LongHorizonMic
     def __post_init__(self):
         super().__post_init__()
 
-        tune_hand_for_carrying(self)
         tune_wrist_camera_bodies(self)
+        configure_cpu_camera_copies(self)
+        tune_wrist_damping(self)
+        configure_light_virtual_wrist_links(self)
         setup_floating_teleop(self)
-        table = self.scene.table
-        tune_teleop_for_carrying(self, surface_z=table.init_state.pos[2] + 0.5 * table.spawn.size[2])
+        # CPU reset/state restore must not write velocities to fixed markers.
+        # The adapter preserves poses and all dynamic-body velocity writes.
+        from dexverse.replay_rigid_object import configure_replay_rigid_objects
+        configure_replay_rigid_objects(self.scene)

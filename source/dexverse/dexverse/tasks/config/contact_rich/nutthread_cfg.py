@@ -33,7 +33,12 @@ BOLT_HEAD_HEIGHT = 0.01 * ASSET_SCALE
 BOLT_SHANK_HEIGHT = 0.025 * ASSET_SCALE
 THREAD_PITCH = 0.002 * ASSET_SCALE
 NUT_BASE_HEIGHT = 0.01 * NUT_ASSET_SCALE
-TARGET_THREAD_TURNS = 1.5
+NUT_TOP_HEIGHT = 0.023 * NUT_ASSET_SCALE
+# Both face openings are centered 0.2 mm toward local -X in the source mesh.
+NUT_AXIS_OFFSET = (-0.0002 * NUT_ASSET_SCALE, 0.0)
+# Require deeper engagement than the roughly one-pitch seating depth. Success
+# is geometric insertion depth, not a count of the nut's accumulated rotation.
+TARGET_THREAD_TURNS = 3.0
 
 # Root-placement offsets relative to the tabletop. Keep these separate from
 # bolt/nut geometry heights, which are used by success logic.
@@ -42,6 +47,8 @@ BOLT_ROOT_OFFSET = TABLE_CLEARANCE
 NUT_ROOT_OFFSET = TABLE_CLEARANCE - NUT_BASE_HEIGHT
 NUT_TABLE_CLEARANCE = NUT_ROOT_OFFSET  # Backwards-compatible alias; this is a root offset.
 
+# Effective minimum depth: (3.0 - 0.375) * 6 mm = 15.75 mm below the bolt tip.
+# SUCCESS_THRESHOLD_TURNS is a tolerance; increasing it would make success easier.
 SUCCESS_THRESHOLD_TURNS = 0.375
 CENTER_DIST_THRESH = 0.0025
 
@@ -164,6 +171,8 @@ class NutThreadTerminationsCfg(dexverse_base_env.TerminationsCfg):
             "nut_cfg": SceneEntityCfg("nut"),
             "bolt_cfg": SceneEntityCfg("bolt"),
             "nut_base_height": NUT_BASE_HEIGHT,
+            "nut_top_height": NUT_TOP_HEIGHT,
+            "nut_axis_offset": NUT_AXIS_OFFSET,
             "bolt_head_height": BOLT_HEAD_HEIGHT,
             "bolt_shank_height": BOLT_SHANK_HEIGHT,
             "target_thread_turns": TARGET_THREAD_TURNS,
@@ -199,10 +208,15 @@ class NutThreadEventCfg(dexverse_base_env.EventCfg):
     )
 
     reset_nut_on_table = EventTerm(
-        func=mdp.reset_root_state_uniform,
+        func=mdp.reset_root_pose_uniform_excluding,
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("nut"),
+            # Reset the bolt first, then sample within the same rectangle while
+            # clearing both scaled collision footprints (including the head).
+            "reference_asset_cfg": SceneEntityCfg("bolt"),
+            "min_xy_distance": 0.10,
+            "max_attempts": 100,
             "pose_range": {
                 "x": [-0.15, 0.15],
                 "y": [-0.2, 0.2],

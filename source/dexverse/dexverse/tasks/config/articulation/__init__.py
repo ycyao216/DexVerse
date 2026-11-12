@@ -32,7 +32,7 @@ register_env(
 register_env(__name__, "Dexverse-OpenStapler-v0", "open_stapler_cfg", "OpenStaplerEnvFloatingDexHandRightCfg")
 register_env(__name__, "Dexverse-OpenFlatFolder-v0", "open_flat_folder_cfg", "OpenFlatFolderEnvFloatingDexHandRightCfg")
 register_env(
-    __name__, "Dexverse-OpenHuaweiPhone-v0", "open_huawei_phone_cfg", "OpenHuaweiPhoneEnvFloatingDexHandRightCfg"
+    __name__, "Dexverse-OpenFoldablePhone-v0", "open_foldable_phone_cfg", "OpenFoldablePhoneEnvFloatingDexHandRightCfg"
 )
 register_env(
     __name__, "Dexverse-CabinetDoubleDoor-v0", "cabinet_double_door", "CabinetDoubleDoorEnvFloatingDexHandRightCfg"

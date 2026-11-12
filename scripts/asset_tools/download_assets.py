@@ -100,7 +100,7 @@ def _fetch_mani_twin(extract_to: Path) -> bool:
     script = Path(__file__).resolve().with_name("download_selected_objects.py")
     dest = extract_to / "mani_twin_selected"
     print(f"  fetching ManiTwin pool from upstream (ManiTwin/ManiTwin-100K) -> {dest}")
-    proc = subprocess.run([sys.executable, str(script), str(dest)])
+    proc = subprocess.run([sys.executable, str(script), str(dest), "--unpack"])
     if proc.returncode != 0:
         print(f"  !! download_selected_objects.py exited with code {proc.returncode}")
     return proc.returncode == 0

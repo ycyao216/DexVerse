@@ -2,7 +2,11 @@
 
 import json
 from pathlib import Path
+import sys
 from typing import NamedTuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "source/dexverse"))
+from dexverse.recording_compat import normalize_recording_identity, recording_output_label  # noqa: E402
 
 from demo_release import baseline_entries, baseline_key, contained_path, read_manifest, sha256
 
@@ -44,7 +48,9 @@ def discover_groups(root, *, tasks=(), files=(), all_tasks=False, version="all",
             path = Path(filename).expanduser().resolve()
             if not path.is_file() or path.suffix != ".pkl":
                 raise FileNotFoundError(f"Expected a pickle file: {path}")
-            groups.append(PickleGroup(path.name, path.stem, path.parent, [path]))
+            groups.append(PickleGroup(
+                recording_output_label(path.name), recording_output_label(path.stem), path.parent, [path],
+            ))
         return groups, warnings
     if legacy_collections:
         if version != "all":
@@ -59,9 +65,12 @@ def discover_groups(root, *, tasks=(), files=(), all_tasks=False, version="all",
                 if any(p == "_review" or "backup" in p.lower() or "copy" in p.lower() for p in relative.parts):
                     continue
                 contained_path(root, relative.as_posix())
-                parents.add(path.parent)
+                parents.add(path.resolve().parent)
         for directory in sorted(parents):
-            groups.append(PickleGroup(directory.name, directory.name, directory, sorted(directory.glob("*.pkl"))))
+            groups.append(PickleGroup(
+                recording_output_label(directory.name), recording_output_label(directory.name),
+                directory, sorted(directory.glob("*.pkl")),
+            ))
         if not groups:
             raise FileNotFoundError("No raw collection pickles selected; use --file for an explicit recording.")
         return groups, warnings
@@ -105,6 +114,7 @@ def validate_selected_identity(payload, expected_task):
     """Reject misplaced files before constructing an environment, even with overrides."""
     if expected_task is None:
         return
+    payload = normalize_recording_identity(payload)
     identities = [payload.get(k) for k in ("task", "env_name") if payload.get(k) is not None]
     if not identities or any(task != expected_task for task in identities):
         raise ValueError(f"Selected {expected_task}, but the curated pickle identifies {identities!r}")

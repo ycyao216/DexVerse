@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Fixate-then-manipulate: unfold a Huawei Mate X5 foldable phone.
+"""Fixate-then-manipulate: unfold a foldable phone.
 
-The Mate X5 USD exposes two symmetric RevoluteJoint hinges (left/right)
+The phone USD exposes two symmetric RevoluteJoint hinges (left/right)
 that fold the two screen halves around the center body. The task is
 symmetric with :mod:`open_laptop_cfg` — pin one half while levering the
 other half open — but the phone is small enough that we scale it and rest
@@ -31,7 +31,11 @@ This config mirrors the real-world treatment used in
 
 import math
 
-from dexverse.assets import SYNTHESIS_DIR
+from dexverse.assets.foldable_phone import (
+    FOLDABLE_PHONE_USD_PATH,
+    FOLDABLE_PHONE_LEFT_HINGE,
+    FOLDABLE_PHONE_RIGHT_HINGE,
+)
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
@@ -41,15 +45,12 @@ from scipy.spatial.transform import Rotation as R
 from ... import mdp
 from .base_cfg import FixateArticulationEnvFloatingDexHandRightCfg
 
-HUAWEI_PHONE_USD_PATH = str(SYNTHESIS_DIR / "huawei mate x5001" / "model_Huawei Mate01 X5.usd")
-
-
 @configclass
-class OpenHuaweiPhoneEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDexHandRightCfg):
-    """Unfold a Mate X5 phone while the body is free on the table."""
+class OpenFoldablePhoneEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDexHandRightCfg):
+    """Unfold a foldable phone while the body is free on the table."""
 
     robot_type: str = "floating_shadow_bimanual"
-    articulation_usd_path: str = HUAWEI_PHONE_USD_PATH
+    articulation_usd_path: str = FOLDABLE_PHONE_USD_PATH
     # 1.2x brings the folded phone to roughly palm-size.
     articulation_scale: tuple = (1.2, 1.2, 1.2)
     articulation_init_pos: tuple = (0.0, 0.05, 0.0)
@@ -61,8 +62,8 @@ class OpenHuaweiPhoneEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDex
     )
     # Both hinges start folded (the two screen halves closed around the body).
     articulation_init_joint_pos: dict[str, float] = {
-        "RevoluteJoint_Huawei_Mate01_X5_left": math.radians(75.0),
-        "RevoluteJoint_Huawei_Mate01_X5_right": math.radians(-90.0),
+        FOLDABLE_PHONE_LEFT_HINGE: math.radians(75.0),
+        FOLDABLE_PHONE_RIGHT_HINGE: math.radians(-90.0),
     }
     articulation_half_height_est: float = 0.01
 
@@ -142,8 +143,8 @@ class OpenHuaweiPhoneEnvFloatingDexHandRightCfg(FixateArticulationEnvFloatingDex
     )
     articulation_padding_block_size: tuple[float, float, float] = (0.03, 0.1, 0.08)
     success_joint_names: list[str] = [
-        "RevoluteJoint_Huawei_Mate01_X5_left",
-        "RevoluteJoint_Huawei_Mate01_X5_right",
+        FOLDABLE_PHONE_LEFT_HINGE,
+        FOLDABLE_PHONE_RIGHT_HINGE,
     ]
     success_threshold: float = 0.5
     # The phone must also be lifted at least this far (m) above its spawn

@@ -79,9 +79,7 @@ DEFAULT_INSTALL_DIR = (
     SCRIPT_DIR / ".." / ".." / "source" / "dexverse" / "dexverse" / "assets" / "mani_twin_selected"
 ).resolve()
 
-# Reuse the canonical patcher (author_usd_mesh_collision.py) that lives next to
-# this script in scripts/asset_tools/ instead of duplicating it inline. That
-# directory isn't a Python package, so we extend sys.path.
+# Asset helpers live next to this standalone entry point.
 _ASSET_SCRIPT_DIR = SCRIPT_DIR
 if str(_ASSET_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_ASSET_SCRIPT_DIR))
@@ -412,25 +410,25 @@ def _patch_usd(usd_path: Path, approx: str) -> int:
     """Apply CollisionAPI + MeshCollisionAPI(approximation=approx) to every
     Mesh prim in the stage, saving in place. Returns number of meshes patched.
 
-    Delegates to ``scripts/asset_tools/author_usd_mesh_collision.py`` so the in-place
-    authoring logic stays in one place.
+    Upstream visual meshes have no collision API. Author it on each visible
+    mesh after unpacking, before the environment adds rigid-body properties.
     """
-    from author_usd_mesh_collision import patch_usd as _author_patch_usd  # lazy
+    from pxr import Usd, UsdGeom, UsdPhysics
 
-    result = _author_patch_usd(
-        usd_path,
-        output_usd=None,
-        approximation=approx,
-        in_place=True,
-        overwrite=False,
-        flatten=False,
-        mesh_regex=None,
-        visible_only=True,
-        max_convex_hulls=None,
-    )
-    if result.status == "failed":
-        raise RuntimeError(f"author_usd_mesh_collision failed for {usd_path}: {result.message}")
-    return int(result.patched_meshes)
+    stage = Usd.Stage.Open(str(usd_path))
+    if stage is None:
+        raise RuntimeError(f"Cannot open USD: {usd_path}")
+    patched = 0
+    for prim in stage.Traverse():
+        if not prim.IsA(UsdGeom.Mesh) or UsdGeom.Imageable(prim).ComputeVisibility() == UsdGeom.Tokens.invisible:
+            continue
+        UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(True)
+        UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr(approx)
+        patched += 1
+    if not patched:
+        raise RuntimeError(f"No visible collision meshes found in {usd_path}")
+    stage.GetRootLayer().Save()
+    return patched
 
 
 def unpack_and_patch_tree(
