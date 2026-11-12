@@ -65,6 +65,7 @@ _build
 
 # Tests
 tests/
+!/scripts/tests/
 
 # Docker history
 .isaac-lab-docker-history
