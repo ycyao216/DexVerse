@@ -127,3 +127,7 @@ tests/
 AGENTS.md
 env.sh
 /.worktrees/
+
+# Local teleop recordings. Curated demos are published separately (see above).
+/longhorizon/
+/collection/

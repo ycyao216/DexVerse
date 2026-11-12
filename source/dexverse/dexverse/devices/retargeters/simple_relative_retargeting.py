@@ -29,6 +29,7 @@ Three ``wrist_rot_repr`` modes are supported in the per-hand layout:
 from __future__ import annotations
 
 import tempfile
+import time
 from dataclasses import dataclass, field
 from importlib import import_module
 from typing import Any
@@ -50,6 +51,11 @@ from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.utils.assets import retrieve_file_path
 from scipy.spatial.transform import Rotation as R
+
+from .wrist_filter import WristFilterCfg, WristPoseFilter
+
+# How often an enabled wrist filter reports the teleop rate and rejected poses.
+WRIST_FILTER_REPORT_PERIOD_S = 10.0
 
 
 def wxyz_to_xyzw(quat: np.ndarray) -> np.ndarray:
@@ -126,6 +132,12 @@ class SimpleRelativeRetargeter(RetargeterBase):
         # a full-revolution absolute joint command before configured limits are
         # applied.
         self._previous_wrist_euler_commands = {hand: None for hand in self._tracked_hands}
+        self._wrist_filters = (
+            {hand: WristPoseFilter(cfg.wrist_filter) for hand in self._tracked_hands}
+            if cfg.wrist_filter is not None
+            else {}
+        )
+        self._wrist_filter_report_start: tuple[float, dict] | None = None
         self._dex_retgt = {}
         self._dex_output_joint_names = {}
         self._dex_to_action_finger_indices = {}
@@ -177,7 +189,8 @@ class SimpleRelativeRetargeter(RetargeterBase):
         hand_data_by_target = {hand: self._get_hand_data(data, hand) for hand in self._tracked_hands}
 
         for hand, hand_data in hand_data_by_target.items():
-            self.latest_wrist_poses[hand] = self._extract_wrist_pose(hand_data)
+            self.latest_wrist_poses[hand] = self._filter_wrist_pose(hand, self._extract_wrist_pose(hand_data))
+        self._report_wrist_filter()
 
         self.lastest_wrist_pose = self.latest_wrist_poses.get(self._bound_hand)
         if self._bound_hand in self.retarget_base_wrist_poses:
@@ -194,6 +207,7 @@ class SimpleRelativeRetargeter(RetargeterBase):
 
         for hand in self._tracked_hands:
             self._assign_hand_wrist_command(action, hand)
+            self._apply_wrist_z_floor(action, hand)
             finger_values = self._retarget_hand_fingers(hand_data_by_target[hand], hand)
             self._assign_hand_fingers(action, hand, finger_values)
 
@@ -363,6 +377,50 @@ class SimpleRelativeRetargeter(RetargeterBase):
 
         return np.asarray(wrist_pose, dtype=np.float32).copy()
 
+    def _filter_wrist_pose(self, hand: DeviceBase.TrackingTarget, pose: np.ndarray) -> np.ndarray:
+        """Pass a tracked pose through the hand's wrist filter, if one is enabled."""
+        wrist_filter = self._wrist_filters.get(hand)
+        if wrist_filter is None:
+            return pose
+        # The device reports the world origin until it has seen the hand. That is
+        # not a measurement, so keep holding rather than filter toward it.
+        if np.allclose(pose[:3], 0.0):
+            held = wrist_filter.last_output()
+            return pose if held is None else held
+        return wrist_filter.update(pose)
+
+    def _report_wrist_filter(self) -> None:
+        """Print the real teleop rate and how many poses the wrist filter rejected."""
+        if not self._wrist_filters:
+            return
+        now = time.perf_counter()
+        counts = {hand: (f.num_updates, f.num_rejected) for hand, f in self._wrist_filters.items()}
+        if self._wrist_filter_report_start is None:
+            self._wrist_filter_report_start = (now, counts)
+            return
+        start_time, start_counts = self._wrist_filter_report_start
+        elapsed = now - start_time
+        if elapsed < WRIST_FILTER_REPORT_PERIOD_S:
+            return
+        for hand, (updates, rejected) in counts.items():
+            new_updates = updates - start_counts[hand][0]
+            new_rejected = rejected - start_counts[hand][1]
+            if new_updates == 0:  # No hand tracked yet; nothing worth reporting.
+                continue
+            print(
+                f"[wrist filter] {hand.name}: {new_updates / elapsed:.1f} tracked poses/s, "
+                f"rejected {new_rejected} of {new_updates}"
+            )
+        self._wrist_filter_report_start = (now, counts)
+
+    def _apply_wrist_z_floor(self, action: np.ndarray, hand: DeviceBase.TrackingTarget) -> None:
+        """Stop the wrist height command from winding up below where the hand can go."""
+        floor = self.cfg.wrist_z_floor
+        if floor is None:
+            return
+        z_index = self._layout["hands"][hand]["wrist_trans_indices"][2]
+        action[z_index] = max(action[z_index], floor)
+
     def _layout_rotation(self, hand_layout: dict[str, Any], key: str) -> R:
         quat_wxyz = hand_layout.get(key)
         if quat_wxyz is None:
@@ -478,7 +536,7 @@ class SimpleRelativeRetargeter(RetargeterBase):
             raise ValueError(f"Unsupported wrist_rot_repr '{rot_repr}'. Use 'euler', 'rotvec', or 'quat_absolute'.")
         rot_signs = np.asarray(hand_layout.get("wrist_rot_signs", (1.0, 1.0, 1.0)), dtype=np.float32)
         relative_rot_cmd = relative_rot_cmd * rot_signs
-        if rot_repr == "euler" and self.cfg.task_version == 1:
+        if rot_repr == "euler" and (self.cfg.task_version == 1 or self.cfg.continuous_wrist_euler):
             relative_rot_cmd = self._unwrap_and_clip_wrist_euler(relative_rot_cmd, hand, hand_layout)
         self._assign(action, hand_layout["wrist_trans_indices"], wrist_abs_pos_cmd)
         self._assign(action, hand_layout["wrist_rot_indices"], relative_rot_cmd)
@@ -837,4 +895,16 @@ class SimpleRelativeRetargeterCfg(RetargeterCfg):
     """Use v1 wrist continuity/vector settings only for explicitly upgraded tasks."""
     debug_vis: bool = True
     """v1 follows the task debug switch; v0 ignores this field to preserve its visuals."""
+    wrist_filter: WristFilterCfg | None = None
+    """Reject tracking glitches and smooth the wrist pose. None (default) uses the raw pose."""
+    continuous_wrist_euler: bool = False
+    """Keep Euler wrist commands continuous across +/-pi on v0 tasks; v1 tasks always do."""
+    wrist_z_floor: float | None = None
+    """Lowest wrist z command, in the action's frame. None (default) applies no floor.
+
+    With nothing physical to feel, an operator's hand keeps going down after the
+    robot hand has stopped on the table. The command then sits far below it: the wrist
+    presses at full effort, and the robot will not rise until the operator's hand has
+    climbed all the way back.
+    """
     retargeter_type: type[RetargeterBase] = SimpleRelativeRetargeter

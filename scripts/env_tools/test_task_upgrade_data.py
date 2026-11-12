@@ -30,6 +30,7 @@ from dexverse.benchmark import (  # noqa: E402
     LEGACY_UPGRADE_TASKS,
     BENCHMARK_REVISION,
     LEGACY_UPGRADE_REVISION,
+    LONG_HORIZON_SIM_FIX_REVISIONS,
     V0_BENCHMARK_REVISION,
     baseline_tasks,
     task_identity,
@@ -243,7 +244,16 @@ def test_original_task_and_robot_sources_are_preserved():
         .decode()
         .splitlines()
     )
+    # Corrected in place, and labelled from LONG_HORIZON_SIM_FIX_REVISIONS by task_identity().
+    corrected_in_place = {
+        "source/dexverse/dexverse/tasks/config/long_horizon/make_coffee/long_horizon_make_coffee_cfg.py",
+        "source/dexverse/dexverse/tasks/config/long_horizon/cook_foods/long_horizon_cook_foods_cfg.py",
+        "source/dexverse/dexverse/tasks/config/long_horizon/microwave_retrieve_place/"
+        "long_horizon_microwave_retrieve_place_cfg.py",
+    }
     for path in paths:
+        if path in corrected_in_place:
+            continue
         original = subprocess.check_output(["git", "show", f"30cc673:{path}"], cwd=ROOT)
         if path == "source/dexverse/dexverse/tasks/__init__.py":
             # The sole discovery change imports the sibling upgrade package;
@@ -367,3 +377,27 @@ def test_v1_dispenser_grey_materials_preserve_green_target_and_geometry(tmp_path
     ):
         shader = UsdShade.Shader.Get(stage, f"/dispenser/Looks/{material}/PreviewSurface")
         assert tuple(shader.GetInput("diffuseColor").Get()) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("task", sorted(LONG_HORIZON_SIM_FIX_REVISIONS))
+def test_fixed_long_horizon_tasks_have_their_own_revision(task):
+    identity = task_identity(task)
+    assert identity["task_version"] == 0
+    assert identity["benchmark_revision"] == LONG_HORIZON_SIM_FIX_REVISIONS[task]
+    validate_replay_identity({"task": task, **identity}, task)
+
+
+def test_long_horizon_revisions_are_per_task():
+    assert len(set(LONG_HORIZON_SIM_FIX_REVISIONS.values())) == len(LONG_HORIZON_SIM_FIX_REVISIONS)
+
+
+def test_recordings_from_before_the_long_horizon_fix_need_an_explicit_override():
+    task = "Dexverse-LongHorizon-MakeCoffee-v0"
+    old = {"task": task, "benchmark_revision": V0_BENCHMARK_REVISION}
+    with pytest.raises(ValueError, match="does not match"):
+        validate_replay_identity(old, task)
+    validate_replay_identity(old, task, explicit_override=True)
+
+
+def test_unfixed_long_horizon_tasks_keep_the_official_revision():
+    assert task_identity("Dexverse-LongHorizon-OvenBakeSalmon-v0")["benchmark_revision"] == V0_BENCHMARK_REVISION
