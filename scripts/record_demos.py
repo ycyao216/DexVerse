@@ -133,8 +133,9 @@ parser.add_argument(
     default=None,
     help=(
         "Optional robot variant override for environments that expose 'robot_type'. "
-        "Supported variants: floating_shadow_right, floating_shadow_left, "
-        "floating_shadow_bimanual."
+        "Use floating_{hand}_{side}: shadow, allegro, inspire, sharpa, or wuji "
+        "with right, left, or bimanual; leap with right or bimanual. "
+        "Requires the matching local robot assets."
     ),
 )
 parser.add_argument(

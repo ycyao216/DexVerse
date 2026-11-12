@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Robot-agnostic wrist (palm) init-pose helpers for task configs.
+"""Robot-agnostic wrist control-frame init-pose helpers for task configs.
 
 Tasks that want the robot's wrist to spawn at a specific world location pre-
 dexverse-cross-embodiment-refactor expressed that intent by writing directly to
@@ -11,7 +11,7 @@ dexverse-cross-embodiment-refactor expressed that intent by writing directly to
 single-arm floating Shadow / Leap robots. On the bimanual variants those keys
 don't exist (they're prefixed ``rh_``/``lh_``).
 
-:func:`set_robot_wrist_init_world_pos` takes the desired palm pose in
+:func:`set_robot_wrist_init_world_pos` takes the desired wrist control-frame pose in
 *world* coordinates and dispatches per ``env_cfg.robot_type`` to the correct
 mechanism so the same task cfg works across embodiments.
 """
@@ -24,6 +24,10 @@ from scipy.spatial.transform import Rotation as R
 _SINGLE_ARM_FLOATING_TRANSLATION_ROBOTS = (
     "floating_shadow_right",
     "floating_shadow_left",
+    "floating_allegro_right",
+    "floating_allegro_left",
+    "floating_inspire_right",
+    "floating_inspire_left",
     "floating_leap_right",
     "floating_sharpa_right",
     "floating_sharpa_left",
@@ -42,6 +46,22 @@ _SINGLE_FLOATING_JOINTS: dict[str, tuple[tuple[str, str, str], tuple[str, str, s
         ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
     ),
     "floating_shadow_left": (
+        ("x_translation_joint", "y_translation_joint", "z_translation_joint"),
+        ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
+    ),
+    "floating_allegro_right": (
+        ("x_translation_joint", "y_translation_joint", "z_translation_joint"),
+        ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
+    ),
+    "floating_allegro_left": (
+        ("x_translation_joint", "y_translation_joint", "z_translation_joint"),
+        ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
+    ),
+    "floating_inspire_right": (
+        ("x_translation_joint", "y_translation_joint", "z_translation_joint"),
+        ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
+    ),
+    "floating_inspire_left": (
         ("x_translation_joint", "y_translation_joint", "z_translation_joint"),
         ("x_rotation_joint", "y_rotation_joint", "z_rotation_joint"),
     ),
@@ -170,16 +190,19 @@ def set_robot_wrist_init_world_pos(
     z: float | None = None,
     rot: tuple[float, float, float, float] | None = None,
 ) -> None:
-    """Set the robot's wrist (palm) initial world pose.
+    """Set the robot's wrist control-frame initial world pose.
 
     ``x``/``y``/``z`` are absolute world-frame coords in metres; ``None`` leaves
     that component at the robot's default. ``rot`` is a world-frame quaternion
-    ``(w, x, y, z)`` for the palm; ``None`` preserves the default orientation.
+    ``(w, x, y, z)`` for the wrist control frame; ``None`` preserves the default orientation.
+    The control frame is the end of the virtual wrist-joint chain. Fixed
+    transforms from that frame to the visual hand/palm remain as authored in
+    the USD (for example, Allegro's palm origin has a 3 cm offset).
     The conversion to joint values is robot-specific:
 
-    * Floating Shadow/Leap/Sharpa single-arm robots: writes the robot-specific
+    * Supported single floating hands: writes the robot-specific
       three translation joints so that ``base_pos + R(base_rot) @ joint`` equals
-      the requested palm world position, and writes the three rotation joints
+      the requested wrist world position, and writes the three rotation joints
       (XYZ intrinsic euler) for the orientation.
     * Bimanual floating Shadow/Sharpa/Wuji: writes the robot-specific translation
       and rotation joints for *both* hands, accounting for each hand's fixed
@@ -282,7 +305,7 @@ def _apply_floating_bimanual_pose(env_cfg, *, x, y, z, rot) -> None:
 
 def align_retargeter_wrist_origin_to_init(
     env_cfg,
-    hand_key: str = "right",
+    hand_key: str | None = None,
 ) -> None:
     """Stamp every retargeter's ``wrist_joint_origin`` to the current init frame.
 
@@ -293,8 +316,11 @@ def align_retargeter_wrist_origin_to_init(
 
     Robot dispatch matches :func:`set_robot_wrist_init_world_pos`. For bimanual
     robots both ``"right"`` and ``"left"`` origins are stamped (``hand_key`` is
-    ignored).
+    ignored). For a single hand, an omitted ``hand_key`` follows the selected
+    robot's side; an explicit key overrides that choice.
     """
+    if hand_key is None:
+        hand_key = "left" if getattr(env_cfg, "robot_type", "").endswith("_left") else "right"
     origin_entry = _compute_retargeter_origin_entry(env_cfg, hand_key)
     teleop_devices = getattr(env_cfg, "teleop_devices", None)
     if teleop_devices is None:

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "release": "floating-hands-20261016",
+  "bundles": {
+    "inspire": {
+      "required_files": {
+        "inspire/floating_inspire_hand_right/configuration/floating_inspire_hand_right_base.usd": "82b31ac89b5a4a8d663175ecdbe05f63ac37f889a6215ce625293625c829476c",
+        "inspire/floating_inspire_hand_right/configuration/floating_inspire_hand_right_physics.usd": "054ada69d2b20cfec63a7ef5ef1f1a07c0824f7ccdc81ce30b691a4f3e1bf10b",
+        "inspire/floating_inspire_hand_right/configuration/floating_inspire_hand_right_robot.usd": "98dac294a22481952d2a14e6d0b1395d94ec5c42ef84d7a5e81e4419fa15856d",
+        "inspire/floating_inspire_hand_right/floating_inspire_hand_right.usd": "6a1dd82d1a705e957dca4805df5f883da4056aae19e22094ca59c37081e8d175"
+      }
+    },
+    "wuji": {
+      "required_files": {
+        "wuji/floating_wuji_hand_right/floating_wuji_hand_right.usd": "2a2ab28983f57a3841cf8d8c9684bd688703634c1316756ff0c55f4d51dae1f8"
+      }
+    }
+  },
+  "repo_id": "dexverse/DexVerse_release",
+  "hf_revision": "4c604cb243ad4afebbffe0e9144fd714680faf12"
+}

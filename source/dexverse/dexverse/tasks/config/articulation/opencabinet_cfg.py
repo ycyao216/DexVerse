@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Open-cabinet task using storage-unit asset 45249.
+"""Open-cabinet task using the cabinet shipped in the core asset bundle.
 
 The task succeeds when the door joint opens a fixed angle from the reset pose.
 """
@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import math
 
-from dexverse.assets import PARTNET_MOBILITY_ARTICULATIONS_DIR
+from dexverse.assets import DEXVERSE_AUTHORED_ASSETS_DIR
 from isaaclab.actuators.actuator_cfg import ImplicitActuatorCfg
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
@@ -24,12 +24,13 @@ from ... import mdp
 from .articulation_base import ArticulationBaseEnvFloatingDexHandRightCfg
 from .articulation_base.articulation_base_cfg import ARTICULATION_KEY
 
-# Storage-unit cabinet 45249 with a single revolute door joint (joint_0)
-# hinging the panel on a vertical edge.
-ASSET_DIR = PARTNET_MOBILITY_ARTICULATIONS_DIR / "storage_unit"
-CABINET_USD_PATH = str(ASSET_DIR / "45249" / "mobility.usd")
+# The released core_assets.zip packages this PartNet-derived cabinet under
+# dexverse_authored/cabinet, not the legacy storage_unit/45249 path. Its single
+# revolute door joint (joint_0) hinges the panel on a vertical edge.
+ASSET_DIR = DEXVERSE_AUTHORED_ASSETS_DIR / "cabinet"
+CABINET_USD_PATH = str(ASSET_DIR / "mobility.usd")
 CABINET_SCALE = (0.35, 0.35, 0.35)
-# Root-origin-to-tabletop offset measured for 45249 at 0.35 scale.
+# Root-origin-to-tabletop offset: 0.273942 m at 0.35 scale, rounded upward.
 CABINET_HALF_HEIGHT_EST = 0.274
 SUCCESS_JOINT_NAME = "joint_0"
 # Define the task against an explicit target angle instead of the joint
@@ -73,7 +74,7 @@ class OpenCabinetTerminationsCfg(dexverse_base_env.TerminationsCfg):
 
 @configclass
 class OpenCabinetEnvFloatingDexHandRightCfg(ArticulationBaseEnvFloatingDexHandRightCfg):
-    """Open-cabinet env backed by storage-unit asset 45249."""
+    """Open-cabinet env backed by the released authored cabinet."""
 
     articulation_usd_path: str = CABINET_USD_PATH
     articulation_scale: tuple[float, float, float] = CABINET_SCALE

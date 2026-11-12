@@ -81,6 +81,16 @@ _FLOATING_WUJI_LINKS = _make_links(
 
 
 BIMANUAL_CONTACT_LINKS_BY_ROBOT_TYPE: dict[str, BimanualContactLinks] = {
+    "floating_allegro_bimanual": _make_links(
+        right_palm="right_palm", left_palm="left_palm",
+        right_fingertips=tuple(f"right_link_{i}_0_tip" for i in (3, 7, 11, 15)),
+        left_fingertips=tuple(f"left_link_{i}_0_tip" for i in (3, 7, 11, 15)),
+    ),
+    "floating_inspire_bimanual": _make_links(
+        right_palm="right_hand_base_link", left_palm="left_hand_base_link",
+        right_fingertips=tuple(f"right_{s}" for s in ("thumb_tip", "index_tip", "middle_tip", "ring_tip", "pinky_tip")),
+        left_fingertips=tuple(f"left_{s}" for s in ("thumb_tip", "index_tip", "middle_tip", "ring_tip", "pinky_tip")),
+    ),
     "floating_shadow_bimanual": _SHADOW_LINKS,
     "floating_leap_bimanual": _LEAP_LINKS,
     "bimanual_leap": _LEAP_LINKS,

@@ -422,7 +422,9 @@ def _sync_table_legs_to_table(scene_cfg) -> None:
         leg_cfg.init_state.rot = table_rot
 
 
-def _sync_wrist_camera_attachment(scene_cfg, camera_attr: str, body_attr: str, palm_body_name: str | None) -> None:
+def _sync_wrist_camera_attachment(
+    scene_cfg, camera_attr: str, body_attr: str, palm_body_name: str | None, camera_offset: dict | None = None
+) -> None:
     if palm_body_name is None:
         return
 
@@ -437,6 +439,12 @@ def _sync_wrist_camera_attachment(scene_cfg, camera_attr: str, body_attr: str, p
 
     camera_cfg.prim_path = f"{{ENV_REGEX_NS}}/Robot/{palm_body_name}/wrist_cam"
     body_cfg.prim_path = f"{{ENV_REGEX_NS}}/Robot/{palm_body_name}/wrist_camera_body"
+    if camera_offset is not None:
+        # Some assets place the palm link origin away from the wrist and use
+        # different local axes. Apply their optical pose before deriving the
+        # physical housing pose, so both stay on the same mount. Assignment
+        # (rather than accumulating a transform) also makes repeated setup safe.
+        camera_cfg.offset = TiledCameraCfg.OffsetCfg(**camera_offset)
 
     body_pos, body_rot = _wrist_camera_body_pose(
         camera_cfg.offset.pos,
@@ -449,23 +457,29 @@ def _sync_wrist_camera_attachment(scene_cfg, camera_attr: str, body_attr: str, p
 
 
 def _configure_wrist_camera_attachments(scene_cfg, robot_config) -> None:
+    offsets = robot_config.wrist_camera_offsets
     if robot_config.left_palm_body_name is not None and robot_config.right_palm_body_name is not None:
         # Bimanual robots expose explicit scene entities for each hand. The
         # legacy single-camera entity is disabled to avoid spawning duplicates.
         scene_cfg.wrist_camera = None
         scene_cfg.wrist_camera_body = None
         _sync_wrist_camera_attachment(
-            scene_cfg, "right_wrist_camera", "right_wrist_camera_body", robot_config.right_palm_body_name
+            scene_cfg, "right_wrist_camera", "right_wrist_camera_body", robot_config.right_palm_body_name,
+            offsets.get(robot_config.right_palm_body_name),
         )
         _sync_wrist_camera_attachment(
-            scene_cfg, "left_wrist_camera", "left_wrist_camera_body", robot_config.left_palm_body_name
+            scene_cfg, "left_wrist_camera", "left_wrist_camera_body", robot_config.left_palm_body_name,
+            offsets.get(robot_config.left_palm_body_name),
         )
     else:
         scene_cfg.right_wrist_camera = None
         scene_cfg.left_wrist_camera = None
         scene_cfg.right_wrist_camera_body = None
         scene_cfg.left_wrist_camera_body = None
-        _sync_wrist_camera_attachment(scene_cfg, "wrist_camera", "wrist_camera_body", robot_config.palm_body_name)
+        _sync_wrist_camera_attachment(
+            scene_cfg, "wrist_camera", "wrist_camera_body", robot_config.palm_body_name,
+            offsets.get(robot_config.palm_body_name),
+        )
 
 
 def make_default_object_cfg(
@@ -606,6 +620,10 @@ class RobotConfig:
     """Right palm body name for bimanual wrist-mounted sensors. Defaults to palm_body_name."""
     left_palm_body_name: str | None = None
     """Left palm body name for bimanual wrist-mounted sensors. None means single-hand setup."""
+    wrist_camera_offsets: dict[str, dict] = {}
+    """Embodiment-specific optical poses, keyed by palm body name, in that body's
+    local coordinates. Each entry supplies TiledCameraCfg.OffsetCfg arguments.
+    Bodies without an entry retain the scene's configured camera offset."""
     fingertip_body_names: list[str] = ["thumb_fingertip", "fingertip", "fingertip2", "fingertip3"]
     """List of fingertip body names for observations and rewards."""
     hand_tips_body_names: list[str] | None = None
@@ -629,21 +647,58 @@ class RobotConfig:
 def _get_tabletop_robot_setup_builders():
     """Build the robot_type -> setup builder registry for tabletop envs.
 
-    Shadow-only release: floating right / left / bimanual variants. The other
-    hand families (allegro, inspire, leap, sharpa, wuji) are staged under
-    source_unreleased/robot_agents/ pending further testing; restoring one
-    means moving its package back and re-adding its import + entries here.
+    Each hand family exposes floating right / left / bimanual variants
+    (Leap exposes right + bimanual). Matching binary assets are required.
     """
+    from dexverse.robot_agents.allegro.floating import (
+        build_tabletop_floating_allegro_bimanual_setup,
+        build_tabletop_floating_allegro_left_setup,
+        build_tabletop_floating_allegro_right_setup,
+    )
+    from dexverse.robot_agents.inspire.floating import (
+        build_tabletop_floating_inspire_bimanual_setup,
+        build_tabletop_floating_inspire_left_setup,
+        build_tabletop_floating_inspire_right_setup,
+    )
+    from dexverse.robot_agents.leap.floating import (
+        build_tabletop_floating_leap_bimanual_setup,
+        build_tabletop_floating_leap_right_setup,
+    )
     from dexverse.robot_agents.shadow.floating import (
         build_tabletop_floating_shadow_bimanual_setup,
         build_tabletop_floating_shadow_left_setup,
         build_tabletop_floating_shadow_right_setup,
+    )
+    from dexverse.robot_agents.sharpa.floating import (
+        build_tabletop_floating_sharpa_bimanual_setup,
+        build_tabletop_floating_sharpa_left_setup,
+        build_tabletop_floating_sharpa_right_setup,
+    )
+    from dexverse.robot_agents.wuji.floating import (
+        build_tabletop_floating_wuji_bimanual_setup,
+        build_tabletop_floating_wuji_left_setup,
+        build_tabletop_floating_wuji_right_setup,
     )
 
     return {
         "floating_shadow_right": build_tabletop_floating_shadow_right_setup,
         "floating_shadow_left": build_tabletop_floating_shadow_left_setup,
         "floating_shadow_bimanual": build_tabletop_floating_shadow_bimanual_setup,
+        "floating_allegro_right": build_tabletop_floating_allegro_right_setup,
+        "floating_allegro_left": build_tabletop_floating_allegro_left_setup,
+        "floating_allegro_bimanual": build_tabletop_floating_allegro_bimanual_setup,
+        "floating_inspire_right": build_tabletop_floating_inspire_right_setup,
+        "floating_inspire_left": build_tabletop_floating_inspire_left_setup,
+        "floating_inspire_bimanual": build_tabletop_floating_inspire_bimanual_setup,
+        "floating_sharpa_right": build_tabletop_floating_sharpa_right_setup,
+        "floating_sharpa_left": build_tabletop_floating_sharpa_left_setup,
+        "floating_sharpa_bimanual": build_tabletop_floating_sharpa_bimanual_setup,
+        "floating_wuji_right": build_tabletop_floating_wuji_right_setup,
+        "floating_wuji_left": build_tabletop_floating_wuji_left_setup,
+        "floating_wuji_bimanual": build_tabletop_floating_wuji_bimanual_setup,
+        "floating_leap_right": build_tabletop_floating_leap_right_setup,
+        "floating_leap_bimanual": build_tabletop_floating_leap_bimanual_setup,
+        "bimanual_leap": build_tabletop_floating_leap_bimanual_setup,
     }
 
 

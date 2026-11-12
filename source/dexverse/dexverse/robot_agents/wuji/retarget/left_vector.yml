@@ -1,0 +1,52 @@
+# Vector retargeting: wrist -> fingertip vectors (one per finger),
+# the minimal-parameter form (cf. <side>_dexpilot.yml). Auto-generated
+# from the dexpilot config so link/joint names stay in sync.
+retargeting:
+  type: vector
+  urdf_path: wuji_hand_left.urdf
+  target_origin_link_names:
+  - left_palm_link
+  - left_palm_link
+  - left_palm_link
+  - left_palm_link
+  - left_palm_link
+  target_task_link_names:
+  - left_finger1_tip_link
+  - left_finger2_tip_link
+  - left_finger3_tip_link
+  - left_finger4_tip_link
+  - left_finger5_tip_link
+  target_link_human_indices:
+  - - 0
+    - 0
+    - 0
+    - 0
+    - 0
+  - - 4
+    - 8
+    - 12
+    - 16
+    - 20
+  target_joint_names:
+  - left_finger1_joint1
+  - left_finger1_joint2
+  - left_finger1_joint3
+  - left_finger1_joint4
+  - left_finger2_joint1
+  - left_finger2_joint2
+  - left_finger2_joint3
+  - left_finger2_joint4
+  - left_finger3_joint1
+  - left_finger3_joint2
+  - left_finger3_joint3
+  - left_finger3_joint4
+  - left_finger4_joint1
+  - left_finger4_joint2
+  - left_finger4_joint3
+  - left_finger4_joint4
+  - left_finger5_joint1
+  - left_finger5_joint2
+  - left_finger5_joint3
+  - left_finger5_joint4
+  low_pass_alpha: 0.8
+  scaling_factor: 1.3

@@ -1,0 +1,44 @@
+# Vector retargeting: wrist -> fingertip vectors (one per finger),
+# the minimal-parameter form (cf. <side>_dexpilot.yml). Auto-generated
+# from the dexpilot config so link/joint names stay in sync.
+retargeting:
+  type: vector
+  urdf_path: allegro_hand_left_dexrot.urdf
+  target_origin_link_names:
+  - base_link
+  - base_link
+  - base_link
+  - base_link
+  target_task_link_names:
+  - link_15.0_tip
+  - link_3.0_tip
+  - link_7.0_tip
+  - link_11.0_tip
+  target_link_human_indices:
+  - - 0
+    - 0
+    - 0
+    - 0
+  - - 4
+    - 8
+    - 12
+    - 16
+  target_joint_names:
+  - joint_0.0
+  - joint_1.0
+  - joint_2.0
+  - joint_3.0
+  - joint_4.0
+  - joint_5.0
+  - joint_6.0
+  - joint_7.0
+  - joint_8.0
+  - joint_9.0
+  - joint_10.0
+  - joint_11.0
+  - joint_12.0
+  - joint_13.0
+  - joint_14.0
+  - joint_15.0
+  low_pass_alpha: 0.8
+  scaling_factor: 1.3
