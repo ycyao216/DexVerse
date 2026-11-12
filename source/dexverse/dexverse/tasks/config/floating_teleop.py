@@ -14,6 +14,7 @@ from dexverse.devices.retargeters import (
 from dexverse.devices.retargeters.simple_relative_retargeting import (
     SIMPLE_RETARGETER_LAYOUT_SOURCES,
 )
+from dexverse.devices.visionpro_device import VisionProDeviceCfg
 from isaaclab.devices import DevicesCfg, OpenXRDeviceCfg
 from isaaclab.devices.openxr import XrCfg
 
@@ -79,6 +80,15 @@ def _devices_simple_relative(sim_device, xr_cfg: XrCfg, simple_robot_type: str) 
                 sim_device=sim_device,
                 xr_cfg=xr_cfg,
             ),
+            "visionpro": VisionProDeviceCfg(
+                retargeters=[
+                    SimpleRelativeRetargeterCfg(
+                        sim_device=sim_device,
+                        robot_type=simple_robot_type,
+                    )
+                ],
+                sim_device=sim_device,
+            ),
         }
     )
 
@@ -101,6 +111,15 @@ def _devices_simple_absolute(sim_device, xr_cfg: XrCfg, simple_robot_type: str) 
                 ],
                 sim_device=sim_device,
                 xr_cfg=xr_cfg,
+            ),
+            "visionpro": VisionProDeviceCfg(
+                retargeters=[
+                    SimpleAbsoluteRetargeterCfg(
+                        sim_device=sim_device,
+                        robot_type=simple_robot_type,
+                    )
+                ],
+                sim_device=sim_device,
             ),
         }
     )

@@ -9,3 +9,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Devices package for dexverse."""
+
+from .visionpro_device import VisionProDevice, VisionProDeviceCfg
+
+__all__ = ["VisionProDevice", "VisionProDeviceCfg"]

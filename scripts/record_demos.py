@@ -264,12 +264,12 @@ if data_root is not None:
 
 app_launcher_args = vars(args_cli)
 
-uses_xr_teleop = (
-    "handtracking" in args_cli.teleop_device.lower() or "motion_controllers" in args_cli.teleop_device.lower()
-)
+device_name_lower = args_cli.teleop_device.lower()
+uses_xr_teleop = "handtracking" in device_name_lower or "motion_controllers" in device_name_lower
+uses_hand_retargeting = uses_xr_teleop or "visionpro" in device_name_lower
 
-if uses_xr_teleop and not args_cli.enable_pinocchio:
-    logger.info("Auto-enabling Pinocchio for handtracking / motion-controller teleoperation.")
+if uses_hand_retargeting and not args_cli.enable_pinocchio:
+    logger.info("Auto-enabling Pinocchio for hand-tracking teleoperation.")
     args_cli.enable_pinocchio = True
 
 if args_cli.enable_pinocchio:
@@ -1022,6 +1022,7 @@ def run_simulation_loop(
 ) -> int:
     success_step_count = 0
     should_reset = False
+    should_quit = False
     reset_reason = "manual_reset"
     running = False  # Start inactive for VR or web START.
 
@@ -1046,11 +1047,18 @@ def run_simulation_loop(
         running = False
         print("Recording paused")
 
+    def quit_recording_session():
+        nonlocal should_quit, running
+        running = False
+        should_quit = True
+        print("Recording session exit requested")
+
     teleop_callbacks = {
         "R": reset_recording_instance,
         "START": start_recording_instance,
         "STOP": stop_recording_instance,
         "RESET": reset_recording_instance,
+        "QUIT": quit_recording_session,
     }
     for key, cb in teleop_callbacks.items():
         teleop_interface.add_callback(key, cb)
@@ -1077,9 +1085,15 @@ def run_simulation_loop(
     print(f"Target Demos: {target_demos}")
     print("=" * 60)
     print("\nVR Controls:")
-    print("  - Use START gesture/button to begin recording")
-    print("  - Use STOP gesture/button to pause recording")
-    print("  - Use RESET gesture/button to reset environment")
+    if args_cli.teleop_device.lower() == "visionpro":
+        print("  - Focus the Isaac Sim window and press S to calibrate/start recording")
+        print("  - Press P to pause recording")
+        print("  - Press R to reset the environment")
+        print("  - Press Q to exit cleanly")
+    else:
+        print("  - Use START gesture/button to begin recording")
+        print("  - Use STOP gesture/button to pause recording")
+        print("  - Use RESET gesture/button to reset environment")
     print("  - Success condition will automatically complete and save the demo")
     print(f"  - Need {args_cli.num_success_steps} consecutive successful steps to mark as successful")
     print("=" * 60)
@@ -1087,9 +1101,11 @@ def run_simulation_loop(
 
     _printed_bodies = False
     _debug_counter = 0
-
     with contextlib.suppress(KeyboardInterrupt), torch.inference_mode():
         while simulation_app.is_running():
+            if should_quit:
+                break
+
             # Update robot wrist pose for the retargeter (mirrors teleop_agent.py).
             if hasattr(teleop_interface, "_retargeters") and teleop_interface._retargeters:
                 try:
