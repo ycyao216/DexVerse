@@ -37,6 +37,7 @@ from ..check_utils import (
     local_point,
     print_status,
     rotate_inverse,
+    status_due,
     track,
 )
 
@@ -65,6 +66,21 @@ def _pour_key(pour_name: str) -> str:
     return f"pour_{pour_name}"
 
 
+def pour_measurements(env, pour_name, tilt_axis_local, spout_local, min_lift,
+                      tilt_rad=POUR_TILT_RAD, xy_tol=0.10):
+    """Read the same geometry for pour gates and cues without advancing timers."""
+    source, pot = env.scene[pour_name].data, env.scene["pot"].data
+    spout = local_point(source.root_pos_w, source.root_quat_w, spout_local)
+    lifted = source.root_pos_w[:, 2] - source.default_root_state[:, 2] >= min_lift
+    tilt = axis_tilt(source.root_quat_w, tilt_axis_local)
+    spout_xy = torch.norm(spout[:, :2] - pot.root_pos_w[:, :2], dim=-1)
+    pot_tilt = axis_tilt(pot.root_quat_w)
+    conditions = torch.stack((lifted, tilt >= tilt_rad, spout_xy <= xy_tol,
+                              pot_tilt <= POUR_POT_MAX_TILT_RAD), dim=-1)
+    return {"spout": spout, "lifted": lifted, "tilt": tilt, "spout_xy": spout_xy,
+            "pot_tilt": pot_tilt, "conditions": conditions, "pouring": conditions.all(dim=-1)}
+
+
 def poured_into_pot(
     env,
     pour_name: str,
@@ -77,13 +93,9 @@ def poured_into_pot(
     hold_s: float = POUR_HOLD_S,
 ) -> torch.Tensor:
     """True once a lifted, tipped object's spout has stayed over an upright pot's mouth."""
-    source, pot = env.scene[pour_name].data, env.scene["pot"].data
-    spout = local_point(source.root_pos_w, source.root_quat_w, spout_local)
-    lifted = source.root_pos_w[:, 2] - source.default_root_state[:, 2] >= min_lift
-    tilt = axis_tilt(source.root_quat_w, tilt_axis_local)
-    spout_xy = torch.norm(spout[:, :2] - pot.root_pos_w[:, :2], dim=-1)
-    pot_tilt = axis_tilt(pot.root_quat_w)
-    pouring = lifted & (tilt >= tilt_rad) & (spout_xy <= xy_tol) & (pot_tilt <= POUR_POT_MAX_TILT_RAD)
+    sample = pour_measurements(env, pour_name, tilt_axis_local, spout_local, min_lift, tilt_rad, xy_tol)
+    lifted, tilt, spout_xy, pot_tilt, pouring = (sample[k] for k in
+        ("lifted", "tilt", "spout_xy", "pot_tilt", "pouring"))
     key = _pour_key(pour_name)
     poured, _ = track(env, key, pouring, hold_s)
     announce_once(env, TASK_LABEL, key, poured, f"{label} poured.")
@@ -222,15 +234,20 @@ def stove_on_and_pot_ready(
     zone_radius: float,
     zone_half_height: float,
     pour_names: tuple[str, ...],
+    disposal: dict | None = None,
 ) -> torch.Tensor:
-    """True per-env while the knob is turned, the pot is on the burner, and all meat is in it."""
+    """Live cooking end state, including released containers when disposal is configured."""
     in_pot = ingredients_in_pot(env, ingredient_names, zone_center, zone_radius, zone_half_height)
-    return (
+    ready = (
         (knob_angle(env, knob_joint) >= knob_threshold_rad)
         & pot_on_burner(env, burner_local)
         & (in_pot == len(ingredient_names))
         & ~pot_spilled(env, pour_names)
     )
+    if disposal is not None:
+        from .disposal import containers_disposed
+        ready &= containers_disposed(env, **disposal)
+    return ready
 
 
 def report_status(
@@ -245,14 +262,28 @@ def report_status(
     zone_radius: float,
     zone_half_height: float,
     pour_names: tuple[str, ...],
+    disposal: dict | None = None,
 ) -> None:
     """Tell the teleoperator everything success is still waiting for."""
-    if env.num_envs != 1 or not bool(waiting[0]):
+    if env.num_envs != 1 or not bool(waiting[0]) or not status_due(env):
         return
     if bool(ever_held(env, "spill", waiting)[0]):
         print_status(env, TASK_LABEL, ["the pot tipped over after a pour, so this attempt cannot succeed, reset"])
         return
     missing = [f"{label} not poured" for label in missing_pours]
+    if disposal is not None:
+        from .disposal import disposal_measurements
+        sample = disposal_measurements(env, **disposal)
+        for i, label in enumerate(("water bottle", "soup can")):
+            if not bool(sample["inside"][0, i]):
+                margins = sample["margins"][0, i].detach().cpu().tolist()
+                missing.append(f"{label} not fully inside bin (clearance x/y/floor/rim: "
+                               + "/".join(f"{1000*m:.0f}" for m in margins) + " mm)")
+            if not bool(sample["released"][0, i]):
+                missing.append(f"move hands clear of {label} ({100*sample['clearance'][0, i]:.1f} cm, needs 3)")
+            if not bool(sample["settled"][0, i]):
+                missing.append(f"{label} still moving ({sample['speed'][0, i]:.2f} m/s, "
+                               f"{sample['spin'][0, i]:.2f} rad/s)")
     errors = {name: float(value[0]) for name, value in _pot_errors(env, burner_local).items()}
     if errors["xy"] > BURNER_XY_TOL:
         missing.append(f"pot {100 * errors['xy']:.1f} cm from the green burner, max {100 * BURNER_XY_TOL:.0f}")

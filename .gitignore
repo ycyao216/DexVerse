@@ -81,6 +81,7 @@ tests/
 # path-constants module and procedural asset generators in git.
 /source/dexverse/dexverse/assets/*
 !/source/dexverse/dexverse/assets/__init__.py
+!/source/dexverse/dexverse/assets/foldable_phone.py
 !/source/dexverse/dexverse/assets/rack_builder.py
 !/source/dexverse/dexverse/assets/shelf_builder.py
 !/source/dexverse/dexverse/assets/small_table_builder.py

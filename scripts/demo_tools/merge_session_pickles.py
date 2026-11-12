@@ -41,6 +41,10 @@ import copy
 import pickle
 from collections.abc import Iterable
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "source/dexverse"))
+from dexverse.recording_compat import normalize_recording_identity, recording_output_label  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DEMOS_ROOT = REPO_ROOT / "source" / "dexverse" / "demonstrations"
@@ -95,7 +99,7 @@ def _load_pickle(path: Path) -> dict:
             f"{path}: format={payload.get('format')!r}; this merger only handles "
             "single-env 'dexverse_trajectory' pickles."
         )
-    return payload
+    return normalize_recording_identity(payload)
 
 
 def _normalized_match_signature(payload: dict) -> tuple:
@@ -156,11 +160,11 @@ def _discover_pickles(demos_root: Path, task_relpaths: list[str], do_all: bool) 
         task_dir = (demos_root / task).resolve()
         if not task_dir.is_dir():
             raise FileNotFoundError(f"--task directory not found: {task_dir}")
-        found.update(task_dir.rglob("*.pkl"))
+        found.update(p.resolve() for p in task_dir.rglob("*.pkl"))
     if do_all:
         if not demos_root.is_dir():
             raise FileNotFoundError(f"--demos-root not found: {demos_root}")
-        found.update(demos_root.rglob("*.pkl"))
+        found.update(p.resolve() for p in demos_root.rglob("*.pkl"))
     if not found:
         raise SystemExit("Nothing selected. Pass --all or --task <relpath> (repeatable).")
     return sorted(found)
@@ -174,7 +178,7 @@ def _group_by_task_dir(pickles: Iterable[Path]) -> dict[Path, list[Path]]:
 
 
 def _looks_like_merged_output(path: Path, output_suffix: str) -> bool:
-    return path.name.endswith(output_suffix)
+    return recording_output_label(path.name).endswith(recording_output_label(output_suffix))
 
 
 def _merge_one_task(
@@ -189,7 +193,7 @@ def _merge_one_task(
     if not sources:
         return (None, 0, "no_inputs")
 
-    out_path = task_dir / output_name
+    out_path = task_dir / recording_output_label(output_name)
     if out_path.is_file() and not overwrite:
         return (out_path, 0, "skip_exists")
 
@@ -319,7 +323,7 @@ def main() -> int:
     total_episodes = 0
     for task_dir, sources in sorted(groups.items()):
         rel = task_dir.relative_to(demos_root) if task_dir.is_relative_to(demos_root) else task_dir
-        output_name = f"{task_dir.name}.pkl"
+        output_name = recording_output_label(f"{task_dir.name}.pkl")
         print(f"\n[{rel}]  ({len(sources)} pickle{'s' if len(sources) != 1 else ''})")
         if args.dry_run:
             for src in sources:

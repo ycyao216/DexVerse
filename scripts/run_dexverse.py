@@ -48,7 +48,7 @@ AVAILABLE_ENVS = [
     "Dexverse-FixateThenManipulate-CabinetDoubleDoor-v0",
     "Dexverse-FixateThenManipulate-LiftBasketHandle-v0",
     "Dexverse-FixateThenManipulate-OpenFlatFolder-v0",
-    "Dexverse-FixateThenManipulate-OpenHuaweiPhone-v0",
+    "Dexverse-OpenFoldablePhone-v0",
     "Dexverse-FixateThenManipulate-OpenLaptop-v0",
     "Dexverse-FixateThenManipulate-SlideUtilityKnife-v0",
     "Dexverse-FixateThenManipulate-SqueezeScissors-v0",

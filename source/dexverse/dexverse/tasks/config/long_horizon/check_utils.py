@@ -90,24 +90,49 @@ def announce_once(env, task_label: str, key: str, flag: torch.Tensor, message: s
     memory[f"announce_{key}"] = (announced, step)
 
 
+def status_due(env) -> bool:
+    """Whether a status could be printed, without advancing its schedule.
+
+    Call this before building expensive diagnostic-only measurements. Success
+    predicates and timers still run every step, and an empty status does not
+    consume the next reporting opportunity.
+    """
+    step = int(env.episode_length_buf[0])
+    last = check_memory(env).get("status_step")
+    return last is None or not 0 <= step - last < STATUS_PERIOD_S / env.step_dt
+
+
 def print_status(env, task_label: str, missing: list[str]) -> None:
     """Print what the current stage is missing, at most once per ``STATUS_PERIOD_S``."""
-    memory = check_memory(env)
-    step = int(env.episode_length_buf[0])
-    last = memory.get("status_step")
-    if not missing or (last is not None and 0 <= step - last < STATUS_PERIOD_S / env.step_dt):
+    if not missing or not status_due(env):
         return
-    memory["status_step"] = step
+    check_memory(env)["status_step"] = int(env.episode_length_buf[0])
     print(f"[{task_label}] Waiting: {'; '.join(missing)}.")
 
 
 def clear_stage_latches(env, env_ids, task_key: str) -> None:
-    """Reset event: forget which stages of a task's stage graph have latched.
+    """Reset stage latches, hold/spill history and visual cues for these envs.
 
-    The stage machine only clears latches if it happens to be evaluated on the exact
-    step an episode restarts, which needs an observation of the stage graph. Without
-    one, a previous attempt's stages carry over into the next.
+    A predicate may not run until late in an episode (Coffee's spill check only runs
+    during placement). Comparing step numbers cannot detect every reset: the next
+    attempt may reach that stage later than the previous one. Clear its history
+    explicitly, including when collection disables success termination.
     """
+    if env_ids is None:
+        env_ids = slice(None)
+    memory = check_memory(env)
+    for key, entry in list(memory.items()):
+        if isinstance(entry, tuple) and len(entry) == 3 and all(isinstance(v, torch.Tensor) for v in entry):
+            count, seen, reached = (v.clone() for v in entry)
+            count[env_ids], seen[env_ids], reached[env_ids] = 0, -1, False
+            memory[key] = (count, seen, reached)
+        else:
+            # Announcements and missed-pour diagnostics only run with one env.
+            memory.pop(key)
+    for shown in getattr(env, "_long_horizon_shown", {}).values():
+        # Force the next success evaluation to refresh USD visibility, including
+        # hidden liquid/flames that aren't part of InteractiveScene.get_state().
+        shown[env_ids] = -1
     state = getattr(env, "_stage_graph_runtime_cache", {}).get(task_key)
     if state is None or state.latched_flags is None:
         return
@@ -121,4 +146,3 @@ def clear_stage_latches(env, env_ids, task_key: str) -> None:
     state.raw_step_buf = None
     state.eval_flags = None
     state.eval_step_buf = None
-

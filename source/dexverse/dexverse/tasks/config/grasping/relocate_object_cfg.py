@@ -25,6 +25,7 @@ from isaaclab.utils import configclass
 
 from ... import dexverse_base_env_cfg as dexverse_base_env
 from ... import mdp
+from ...mdp.commands.pose_commands import ObjectUniformPoseCommand
 from ..floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG, setup_floating_teleop
 from .base_cfg import (
     DEFAULT_OBJECT_CFG,
@@ -38,16 +39,26 @@ from .base_cfg import (
 # Commands
 # ---------------------------------------------------------------------------
 
+class RelocateObjectPoseCommand(ObjectUniformPoseCommand):
+    """Sample each goal above its own table in a bank of environments."""
+
+    def _resample_command(self, env_ids):
+        super()._resample_command(env_ids)
+        if self.cfg.use_world_frame:
+            self.pose_command_b[env_ids, :3] += self._env.scene.env_origins[env_ids]
+            self.pose_command_w[env_ids] = self.pose_command_b[env_ids]
+
 
 @configclass
 class RelocateObjectCommandsCfg(dexverse_base_env.CommandsCfg):
     """Samples a fixed goal position once per episode."""
 
     object_pose = mdp.ObjectUniformPoseCommandCfg(
+        class_type=RelocateObjectPoseCommand,
         asset_name="robot",
         object_name="object",
         resampling_time_range=(3.0, 5.0),
-        debug_vis=False,
+        debug_vis=True,  # goal marker: show the relocate target to the teleoperator
         use_world_frame=True,
         ranges=mdp.ObjectUniformPoseCommandCfg.Ranges(
             pos_x=(0.0, 0.0),
@@ -67,6 +78,15 @@ class RelocateObjectCommandsCfg(dexverse_base_env.CommandsCfg):
 # ---------------------------------------------------------------------------
 
 
+def relocate_goal_pose(env, command_name: str):
+    """Keep goal observations independent of the selected table's world offset."""
+    term = env.command_manager.get_term(command_name)
+    pose = term.command.clone()
+    if term.cfg.use_world_frame:
+        pose[:, :3] -= env.scene.env_origins
+    return pose
+
+
 @configclass
 class RelocateObjectObservationsCfg(PickupObjectObservationsCfg):
     """Adds the commanded goal pose to the ``goal`` group."""
@@ -74,7 +94,7 @@ class RelocateObjectObservationsCfg(PickupObjectObservationsCfg):
     @configclass
     class GoalObsCfg(ObsGroup):
         target_object_pose_b = ObsTerm(
-            func=mdp.generated_commands,
+            func=relocate_goal_pose,
             params={"command_name": "object_pose"},
         )
 
@@ -133,6 +153,9 @@ class RelocateObjectEnvCfg(PickupObjectEnvCfg):
     """Relocate-object task configuration (base, robot-agnostic)."""
 
     supports_object_pose_command: bool = True
+    # Recording/teleop launchers cycle the active slot on reset. Ordinary
+    # training still uses its explicitly configured number of environments.
+    teleop_object_cycle_size: int = 100
     # Height above the table top within which the goal is sampled (metres).
     target_height_range: tuple = (0.15, 0.25)
     # Half-extent of the xy box (around table center) the goal is sampled from.
@@ -186,7 +209,7 @@ class RelocateObjectEnvCfg(PickupObjectEnvCfg):
             markers={
                 "target": sim_utils.SphereCfg(
                     radius=0.03,
-                    visible=False,
+                    visible=True,  # prototype must be visible or the instanced goal sphere is hidden
                     visual_material=sim_utils.PreviewSurfaceCfg(
                         diffuse_color=(0.2, 0.6, 0.9),
                         opacity=0.35,

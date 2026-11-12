@@ -139,3 +139,24 @@ def test_camera_hiding_switch_can_be_reset_between_launch_configurations():
     assert module.CAMERA_HIDING_ENABLED is False
     module.set_camera_hiding_enabled(True)
     assert module.CAMERA_HIDING_ENABLED is True
+
+
+def test_optional_hand_cues_are_skipped_when_not_created():
+    # Canonical keypoints and wrist frames default off; their markers are None
+    # and the visualizers must return before touching tracking data.
+    for method, attr in (("_visualize_canonical_hand_keypoints", "_canonical_markers"),
+                         ("_visualize_wrist_poses", "_wrist_markers")):
+        call = _method("source/dexverse/dexverse/devices/retargeters/simple_relative_retargeting.py",
+                       "SimpleRelativeRetargeter", method, {})
+        rtg = SimpleNamespace(_debug_visualization_enabled=True, **{attr: None})
+        call(rtg, None) if method != "_visualize_wrist_poses" else call(rtg)
+
+
+def test_optional_hand_cue_flags_default_off():
+    path = ROOT / "source/dexverse/dexverse/devices/retargeters/simple_relative_retargeting.py"
+    cls = next(node for node in ast.parse(path.read_text()).body
+               if isinstance(node, ast.ClassDef) and node.name == "SimpleRelativeRetargeterCfg")
+    defaults = {node.target.id: node.value.value for node in cls.body
+                if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Constant)}
+    assert defaults["show_canonical_keypoints"] is False
+    assert defaults["show_wrist_frames"] is False

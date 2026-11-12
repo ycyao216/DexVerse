@@ -25,7 +25,7 @@ import math
 
 import torch
 
-from ..check_utils import announce_once, axis_tilt, ever_held, local_point, print_status, rotate, track
+from ..check_utils import announce_once, axis_tilt, ever_held, local_point, print_status, rotate, status_due, track
 
 TASK_LABEL = "Make Coffee"
 
@@ -65,6 +65,31 @@ def _point_above_root(pos: torch.Tensor, quat_wxyz: torch.Tensor, height: float)
     return local_point(pos, quat_wxyz, (0.0, 0.0, height))
 
 
+def milk_pour_measurements(
+    env,
+    tilt_rad: float = POUR_TILT_RAD,
+    mug_max_tilt_rad: float = POUR_MUG_MAX_TILT_RAD,
+    spout_xy_tol: float = POUR_SPOUT_XY_TOL,
+    spout_min_above_rim: float = POUR_SPOUT_MIN_ABOVE_RIM,
+    spout_max_above_rim: float = POUR_SPOUT_MAX_ABOVE_RIM,
+) -> dict[str, torch.Tensor]:
+    """Read the exact pour geometry for success checks and operator cues.
+
+    This has no timer/latch side effects, so rendering cannot advance a pour.
+    """
+    milk, mug = env.scene["milk"].data, env.scene["object"].data
+    spout = _point_above_root(milk.root_pos_w, milk.root_quat_w, MILK_SPOUT_HEIGHT)
+    rim = _point_above_root(mug.root_pos_w, mug.root_quat_w, MUG_RIM_HEIGHT)
+    above_rim = spout[:, 2] - rim[:, 2]
+    conditions = torch.stack((
+        torch.norm(spout[:, :2] - rim[:, :2], dim=-1) <= spout_xy_tol,
+        (above_rim >= spout_min_above_rim) & (above_rim <= spout_max_above_rim),
+        axis_tilt(milk.root_quat_w) >= tilt_rad,
+        axis_tilt(mug.root_quat_w) <= mug_max_tilt_rad,
+    ), dim=-1)
+    return {"spout": spout, "rim": rim, "conditions": conditions, "pouring": conditions.all(dim=-1)}
+
+
 def milk_poured_over_mug(
     env,
     tilt_rad: float = POUR_TILT_RAD,
@@ -74,23 +99,10 @@ def milk_poured_over_mug(
     spout_max_above_rim: float = POUR_SPOUT_MAX_ABOVE_RIM,
     hold_s: float = POUR_HOLD_S,
 ) -> torch.Tensor:
-    """True once the tipped bottle's spout has stayed above an upright mug's mouth.
-
-    Requiring the spout above the rim rules out a bottle that is merely lying on
-    the table next to the mug.
-    """
-    milk, mug = env.scene["milk"].data, env.scene["object"].data
-    spout = _point_above_root(milk.root_pos_w, milk.root_quat_w, MILK_SPOUT_HEIGHT)
-    rim = _point_above_root(mug.root_pos_w, mug.root_quat_w, MUG_RIM_HEIGHT)
-    above_rim = spout[:, 2] - rim[:, 2]
-    pouring = (
-        (axis_tilt(milk.root_quat_w) >= tilt_rad)
-        & (axis_tilt(mug.root_quat_w) <= mug_max_tilt_rad)
-        & (torch.norm(spout[:, :2] - rim[:, :2], dim=-1) <= spout_xy_tol)
-        & (above_rim >= spout_min_above_rim)
-        & (above_rim <= spout_max_above_rim)
-    )
-    poured, _ = track(env, "pour", pouring, hold_s)
+    """True after one continuous valid pour; a bottle beside the mug never counts."""
+    sample = milk_pour_measurements(env, tilt_rad, mug_max_tilt_rad, spout_xy_tol,
+                                    spout_min_above_rim, spout_max_above_rim)
+    poured, _ = track(env, "pour", sample["pouring"], hold_s)
     announce_once(env, TASK_LABEL, "pour", poured, "Milk poured. Next: carry the mug to the machine's tray and let go.")
     return poured
 
@@ -198,7 +210,7 @@ def report_place_stage(
     fingertip_bodies: tuple[str, ...],
 ) -> None:
     """Tell the teleoperator which placement condition is missing after the pour."""
-    if env.num_envs != 1 or not bool(waiting[0]):
+    if env.num_envs != 1 or not bool(waiting[0]) or not status_due(env):
         return
     if bool(ever_held(env, "spill", waiting)[0]):
         print_status(env, TASK_LABEL, ["the mug tipped over after the pour, so this attempt cannot succeed, reset"])
@@ -219,7 +231,7 @@ def report_lever_stage(
     machine_body: str,
 ) -> None:
     """Tell the teleoperator which success condition is missing after the mug is placed."""
-    if env.num_envs != 1 or not bool(waiting[0]):
+    if env.num_envs != 1 or not bool(waiting[0]) or not status_due(env):
         return
     machine = env.scene["coffee_machine"]
     lever_id = machine.find_joints(lever_joint)[0][0]

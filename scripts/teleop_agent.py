@@ -20,10 +20,16 @@ from collections.abc import Callable
 
 from isaaclab.app import AppLauncher
 from dexverse.teleop_utils.debug_visualization import add_debug_visualization_args, configure_v1_debug_visualization
+from dexverse.teleop_utils.seeding import resolve_seed
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Teleoperation for DexVerse environments.")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
+parser.add_argument("--collection_object_id", help="RelocateObject pool identity (category/instance); load only this object.")
+parser.add_argument(
+    "--object_cycle_size", type=int, default=None,
+    help="Preloaded object environments cycled on reset (RelocateObject default: 100; 1 disables cycling).",
+)
 parser.add_argument(
     "--teleop_device",
     type=str,
@@ -170,6 +176,7 @@ from dexverse.tasks.config.floating_teleop import (
     apply_teleop_retargeting_scheme,
 )
 from dexverse.tasks.utils import parse_env_cfg, prune_stale_obs_refs, strip_camera_cfgs
+from dexverse.teleop_utils.simulation_startup import guard_simulation_startup
 from isaaclab.devices.teleop_device_factory import create_teleop_device
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from omegaconf import OmegaConf
@@ -266,6 +273,16 @@ def main() -> None:  # noqa: C901
     # An explicit CLI seed wins; omission preserves env.seed/task defaults.
     if args_cli.seed is not None:
         env_cfg.seed = args_cli.seed
+    # Replicator must receive a concrete nonnegative seed, not the -1 sentinel.
+    env_cfg.seed = resolve_seed(env_cfg.seed)
+    from dexverse.teleop_utils.environment_cycle import ObjectEnvironmentCycle, configure_single_collection_object, configure_object_cycle
+
+    if args_cli.collection_object_id:
+        if args_cli.task.split(":")[-1] != "Dexverse-RelocateObject-v0" or args_cli.usd_path or args_cli.object_cycle_size not in (None, 1):
+            raise ValueError("--collection_object_id requires the default RelocateObject pool and one environment.")
+        configure_single_collection_object(env_cfg, args_cli.collection_object_id)
+    elif getattr(env_cfg, "teleop_object_cycle_size", 1) > 1 or args_cli.object_cycle_size is not None:
+        configure_object_cycle(env_cfg, args_cli.object_cycle_size)
     env_cfg.env_name = args_cli.task
 
     if args_cli.show_ranges:
@@ -323,7 +340,8 @@ def main() -> None:  # noqa: C901
 
     try:
         # create environment
-        env = gym.make(args_cli.task, cfg=env_cfg).unwrapped
+        with guard_simulation_startup():
+            env = gym.make(args_cli.task, cfg=env_cfg).unwrapped
         print(f"[teleop] Environment seed: {env.cfg.seed}")
         # check environment name (for reach, we don't allow the gripper)
         if "Reach" in args_cli.task:
@@ -333,8 +351,7 @@ def main() -> None:  # noqa: C901
             )
     except Exception as e:
         logger.exception(f"Failed to create environment: {e}")
-        simulation_app.close()
-        return
+        raise
 
     # Flags for controlling teleoperation flow
     should_reset_recording_instance = False
@@ -350,7 +367,7 @@ def main() -> None:  # noqa: C901
         Returns:
             None
         """
-        nonlocal should_reset_recording_instance
+        nonlocal should_reset_recording_instance, teleoperation_active
         should_reset_recording_instance = True
         print("Reset triggered - Environment will reset on next step")
 
@@ -405,24 +422,24 @@ def main() -> None:  # noqa: C901
                 f" Available devices: {available}"
             )
             env.close()
-            simulation_app.close()
-            return
+            raise RuntimeError(f"No teleop device '{args_cli.teleop_device}' found")
     except Exception as e:
         logger.error(f"Failed to create teleop device: {e}")
         env.close()
-        simulation_app.close()
-        return
+        raise
 
     if teleop_interface is None:
         logger.error("Failed to create teleop interface")
         env.close()
-        simulation_app.close()
-        return
+        raise RuntimeError("Failed to create teleop interface")
 
     print(f"Using teleop device: {teleop_interface}")
 
     # reset environment
     env.reset()
+    cycle = ObjectEnvironmentCycle(
+        env, teleop_interface, enabled=getattr(env_cfg, "teleop_object_cycle_size", 1) > 1,
+    )
     teleop_interface.reset()
 
     print("Teleoperation started. Use START/STOP gestures or buttons to control the session.")
@@ -443,6 +460,9 @@ def main() -> None:  # noqa: C901
 
     teleop_interface.add_callback("START", teleop_start_callback)
     teleop_interface.add_callback("STOP", teleop_stop_callback)
+
+
+
 
     # simulate environment
     while simulation_app.is_running():
@@ -479,7 +499,7 @@ def main() -> None:  # noqa: C901
 
                         if wrist_body_idx is not None:
                             # Get body pose in world frame [pos (3), quat (4)]
-                            body_pose_w = robot.data.body_link_pose_w[0, wrist_body_idx, :7]  # Shape (7,)
+                            body_pose_w = robot.data.body_link_pose_w[cycle.index, wrist_body_idx, :7]  # Shape (7,)
 
                             # Debug: Print wrist orientation (only occasionally to avoid spam)
                             _debug_counter += 1
@@ -505,21 +525,27 @@ def main() -> None:  # noqa: C901
                 # Only apply teleop commands when active
                 if teleoperation_active:
                     # process actions
-                    actions = action.repeat(env.num_envs, 1)
+                    actions = cycle.actions(action)
                     # apply actions
-                    env.step(actions)
+                    result = env.step(actions)
+                    if cycle.enabled and bool((result[2] | result[3])[cycle.index]):
+                        should_reset_recording_instance = True
                 else:
                     env.sim.render()
 
                 if should_reset_recording_instance:
                     env.reset()
+                    cycle.advance()
                     teleop_interface.reset()
+                    if cycle.enabled:
+                        teleoperation_active = False
                     should_reset_recording_instance = False
                     print("Environment reset complete")
 
         except Exception:
             logger.exception("Error during simulation step")
-            break
+            env.close()
+            raise
 
     # close the simulator
     env.close()
@@ -527,7 +553,7 @@ def main() -> None:  # noqa: C901
 
 
 if __name__ == "__main__":
-    # run the main function
-    main()
-    # close sim app
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        simulation_app.close()

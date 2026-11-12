@@ -32,6 +32,7 @@ import h5py
 import numpy as np
 
 from dexverse.IL.diffusion.obs_state import OPTIONAL_GROUPS, REQUIRED_GROUPS
+from dexverse.recording_compat import recorded_task_name
 
 
 def build_dataset(in_file: Path, out_file: Path, *, task: str | None, pkl_file: Path | None) -> dict[str, Any]:
@@ -39,7 +40,7 @@ def build_dataset(in_file: Path, out_file: Path, *, task: str | None, pkl_file: 
     with h5py.File(in_file, "r") as src, h5py.File(out_file, "w") as dst:
         if "data" not in src:
             raise ValueError(f"'{in_file}' has no top-level 'data' group; not a replay HDF5.")
-        task_name = task or str(src.attrs.get("task", ""))
+        task_name = recorded_task_name(task or str(src.attrs.get("task", "")))
         term_order = _read_term_order(src, in_file)
         initial_states = _read_initial_states(pkl_file or _source_pickle(src))
 

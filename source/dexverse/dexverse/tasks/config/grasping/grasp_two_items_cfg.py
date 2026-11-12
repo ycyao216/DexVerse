@@ -40,13 +40,13 @@ OBJECT_SPAWN_Y_RANGE = (-0.06, 0.06)
 INACTIVE_OBJECT_PARK_Z = -10.0
 INACTIVE_OBJECT_PARK_X_SPACING = 10.0
 
-SPHERE_RADIUS = 0.028
-CYLINDER_RADIUS = 0.022
-CYLINDER_HEIGHT = 0.060
-TRIANGULAR_PRISM_SIDE_LENGTH = 0.060
-TRIANGULAR_PRISM_HEIGHT = 0.055
-CUBE_SIZE = 0.045
-CUBOID_SIZE = (0.065, 0.035, 0.045)
+OBJECT_SIZE_SCALE = 0.75
+CYLINDER_RADIUS = 0.022 * OBJECT_SIZE_SCALE
+CYLINDER_HEIGHT = 0.060 * OBJECT_SIZE_SCALE
+TRIANGULAR_PRISM_SIDE_LENGTH = 0.060 * OBJECT_SIZE_SCALE
+TRIANGULAR_PRISM_HEIGHT = 0.055 * OBJECT_SIZE_SCALE
+CUBE_SIZE = 0.045 * OBJECT_SIZE_SCALE
+CUBOID_SIZE = tuple(size * OBJECT_SIZE_SCALE for size in (0.065, 0.035, 0.045))
 
 
 @sim_utils.clone
@@ -173,11 +173,6 @@ def _spawn_kwargs(color: tuple[float, float, float]) -> dict:
 
 
 PRIMITIVE_OBJECT_SPECS: dict[str, PrimitiveObjectSpec] = {
-    "sphere": PrimitiveObjectSpec(
-        sim_utils.SphereCfg(radius=SPHERE_RADIUS, **_spawn_kwargs((0.15, 0.35, 0.95))),
-        radius=SPHERE_RADIUS,
-        half_height=SPHERE_RADIUS,
-    ),
     "cylinder": PrimitiveObjectSpec(
         sim_utils.CylinderCfg(
             radius=CYLINDER_RADIUS,
@@ -467,7 +462,6 @@ class GraspTwoItemsEventCfg(dexverse_base_env.EventCfg):
 
 @configclass
 class GraspTwoItemsSceneCfg(dexverse_base_env.SceneCfg):
-    sphere: RigidObjectCfg = OBJECT_CFGS["sphere"]
     cylinder: RigidObjectCfg = OBJECT_CFGS["cylinder"]
     triangular_prism: RigidObjectCfg = OBJECT_CFGS["triangular_prism"]
     cube: RigidObjectCfg = OBJECT_CFGS["cube"]

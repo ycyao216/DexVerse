@@ -185,6 +185,8 @@ class SimpleAbsoluteRetargeter(SimpleRelativeRetargeter):
 
         rot_signs = np.asarray(hand_layout.get("wrist_rot_signs", (1.0, 1.0, 1.0)), dtype=np.float32)
         rot_cmd = rot_cmd * rot_signs
+        if rot_repr == "euler" and self.cfg.continuous_wrist_euler:
+            rot_cmd = self._unwrap_and_clip_wrist_euler(rot_cmd, hand, hand_layout)
 
         self._assign(action, hand_layout["wrist_trans_indices"], wrist_pos_local)
         self._assign(action, hand_layout["wrist_rot_indices"], rot_cmd)

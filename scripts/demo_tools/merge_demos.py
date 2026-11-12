@@ -57,8 +57,12 @@ import copy
 import os
 import pickle
 from pathlib import Path
+import sys
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "source/dexverse"))
+from dexverse.recording_compat import normalize_recording_identity  # noqa: E402
 
 TRAJECTORY_FORMAT = "dexverse_trajectory"
 BATCH_FORMAT = "dexverse_trajectory_batch"
@@ -87,7 +91,7 @@ def load_trajectory_pickle(path: str) -> dict:
     fmt = payload.get("format")
     if fmt not in {TRAJECTORY_FORMAT, BATCH_FORMAT}:
         raise ValueError(f"{path!r} has unknown trajectory format {fmt!r}.")
-    return payload
+    return normalize_recording_identity(payload)
 
 
 def is_batch_pickle(payload: dict) -> bool:

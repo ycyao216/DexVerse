@@ -141,10 +141,14 @@ def reset_root_pose_uniform_excluding(
     min_xy_distance: float,
     max_attempts: int = 20,
     velocity_range: dict | None = None,
+    use_reference_bodies: bool = False,
+    fail_on_exhaustion: bool = False,
 ):
     """Like :func:`reset_root_pose_uniform`, but rejection-samples the xy
     position so it stays at least ``min_xy_distance`` (metres, world frame)
-    from the xy of ``reference_asset_cfg``'s root.
+    from the xy of ``reference_asset_cfg``'s root. With
+    ``use_reference_bodies=True``, clear every selected articulation link instead
+    (e.g. the reset hand's palm and fingers, not its distant fixed base).
 
     The reference asset's pose is read at call time, so for the constraint to
     be meaningful this event must run *after* the reference asset has been
@@ -152,7 +156,8 @@ def reset_root_pose_uniform_excluding(
 
     If the constraint cannot be satisfied within ``max_attempts``, the last
     sampled pose is kept and a warning is printed -- usually a sign the
-    sampling box is too small relative to ``min_xy_distance``.
+    sampling box is too small relative to ``min_xy_distance``. Set
+    ``fail_on_exhaustion=True`` to raise before writing any unsafe poses instead.
     """
     asset = env.scene[asset_cfg.name]
     reference_asset = env.scene[reference_asset_cfg.name]
@@ -165,7 +170,10 @@ def reset_root_pose_uniform_excluding(
     base_xyz = root_state[:, 0:3] + env.scene.env_origins[env_ids_t]
 
     # Reference xy in world frame (already includes env origin).
-    ref_xy = reference_asset.data.root_pos_w[env_ids_t, :2]
+    if use_reference_bodies:
+        ref_xy = reference_asset.data.body_pos_w[env_ids_t][:, reference_asset_cfg.body_ids, :2]
+    else:
+        ref_xy = reference_asset.data.root_pos_w[env_ids_t, None, :2]
 
     x_range = pose_range.get("x", (0.0, 0.0))
     y_range = pose_range.get("y", (0.0, 0.0))
@@ -179,8 +187,8 @@ def reset_root_pose_uniform_excluding(
     # Rejection-resample only the envs whose xy is too close to the reference.
     min_sq = float(min_xy_distance) * float(min_xy_distance)
     for _ in range(max_attempts):
-        delta = (base_xyz[:, :2] + offsets[:, :2]) - ref_xy
-        too_close = (delta[:, 0] * delta[:, 0] + delta[:, 1] * delta[:, 1]) < min_sq
+        delta = (base_xyz[:, None, :2] + offsets[:, None, :2]) - ref_xy
+        too_close = (delta.square().sum(dim=-1) < min_sq).any(dim=-1)
         if not torch.any(too_close):
             break
         n_bad = int(too_close.sum().item())
@@ -192,9 +200,15 @@ def reset_root_pose_uniform_excluding(
 
     # Re-check after the loop so we don't warn when the last iteration's
     # resample actually fixed the remaining envs.
-    delta = (base_xyz[:, :2] + offsets[:, :2]) - ref_xy
-    n_remaining = int(((delta[:, 0] ** 2 + delta[:, 1] ** 2) < min_sq).sum().item())
+    delta = (base_xyz[:, None, :2] + offsets[:, None, :2]) - ref_xy
+    n_remaining = int((delta.square().sum(dim=-1) < min_sq).any(dim=-1).sum().item())
     if n_remaining > 0:
+        if fail_on_exhaustion:
+            raise RuntimeError(
+                f"No collision-free reset for {n_remaining}/{num} environments after "
+                f"{max_attempts} attempts: {asset_cfg.name} must clear {reference_asset_cfg.name} "
+                f"by {min_xy_distance} m. Widen the sampling range."
+            )
         print(
             f"[reset_root_pose_uniform_excluding] WARNING: {n_remaining}/{num} envs "
             f"could not satisfy min_xy_distance={min_xy_distance} from "

@@ -3,22 +3,19 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Grip and teleop settings shared by the long-horizon tasks.
+"""Grip and scene helpers shared by the long-horizon tasks.
 
-Long-horizon tasks carry objects for minutes rather than seconds, which exposes
-problems short tasks get away with.
+Hand drives retain the shared floating-hand stiffness, force limits and finger
+settings. Wrist damping is reduced to keep tracking responsive in the heavier
+long-horizon scenes. Wrist tracking itself uses the shared unfiltered defaults.
+Virtual wrist links use the validated 1 g mass-only profile; their inertia
+tensors and the physical hand links retain the shared asset properties.
 
 Grip: with the default contact material the hand and objects meet at friction 0.5 and
 some assets bounce, which operators report as slippery. Friction 1.5 with no bounce is
 aimed at picking objects up. Once an object is held it barely matters: on 80 recorded
 carrying grasps none dropped when shaken at either value, and slip was about the same.
 
-Hand: the wrist lagged 170-200 ms behind commands, and the finger links are so light
-that a wedged finger can send the whole articulation out of control. See
-:func:`tune_hand_for_carrying`.
-
-Teleop: hand tracking glitches fling held objects, and an operator's hand keeps going
-down after the robot hand has stopped on the table. See :func:`tune_teleop_for_carrying`.
 The wrist camera's housing collides but does not show in the headset. See
 :func:`tune_wrist_camera_bodies`.
 """
@@ -30,37 +27,81 @@ from copy import deepcopy
 import isaaclab.sim as sim_utils
 import torch
 from dexverse.devices.retargeters import SimpleRelativeRetargeterCfg
-from dexverse.devices.retargeters.wrist_filter import WristFilterCfg
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
 
-from ... import dexverse_base_env_cfg as dexverse_base_env
 from ... import mdp
 
 GRIP_FRICTION = 1.5
+WRIST_DAMPING = 200.0
+VIRTUAL_WRIST_LINK_MASS = 0.001
 
-# Wrist translation. The hand carries virtual links, so these joints move 5-7 kg.
-# Critically damped at this stiffness, and following commands about 80 ms behind. At
-# 15 N the drive saturates and overshoots; at 80 N it jams against contacts.
-WRIST_TRANSLATION_STIFFNESS = 4000.0
-WRIST_TRANSLATION_DAMPING = 350.0
-WRIST_TRANSLATION_EFFORT = 40.0
-# Wrist rotation inertia is tiny, so this still overdamps, about 40 ms behind.
-WRIST_ROTATION_DAMPING = 100.0
 
-# Stabilizers, chosen by replaying recorded commands with real objects. Without them,
-# small changes to a replay wedged a finger and sent joints spinning through their
-# limits, in about 1 of 6 runs at the old gains and up to 4 of 6 at stiffer ones. With
-# them, none of 66 runs had a body even exceed 8 m/s. Armature gives the light links
-# effective inertia, and the extra finger damping cancels the overshoot that adds.
-WRIST_ROTATION_ARMATURE = 0.01
-FINGER_ARMATURE = 0.002
-FINGER_DAMPING = 0.3
-MAX_DEPENETRATION_VELOCITY = 5.0
+def set_virtual_wrist_link_mass(env, env_ids, asset_cfg: SceneEntityCfg, mass: float) -> None:
+    """Set selected virtual-link masses without scaling inertia or consuming RNG."""
+    robot = env.scene[asset_cfg.name]
+    if isinstance(asset_cfg.body_ids, slice):
+        raise ValueError("Virtual wrist mass requires explicitly resolved body IDs")
+    allowed = {prefix + axis + "_" + kind + "_link"
+               for prefix in ("", "rh_", "lh_")
+               for kind in ("translation", "rotation") for axis in "xyz"}
+    if not asset_cfg.body_ids or any(robot.body_names[i] not in allowed for i in asset_cfg.body_ids):
+        raise ValueError("Virtual wrist mass may only target the floating wrist links")
+    masses = robot.root_physx_view.get_masses().clone()
+    indices = (torch.arange(masses.shape[0], device="cpu") if env_ids is None
+               else torch.as_tensor(env_ids, device="cpu", dtype=torch.long))
+    body_ids = torch.tensor(asset_cfg.body_ids, device="cpu", dtype=torch.long)
+    masses[indices[:, None], body_ids] = mass
+    # PhysX's mass setter is independent of inertia/COM, unlike density scaling.
+    robot.root_physx_view.set_masses(masses, indices)
 
-# Recorded sessions never got the wrist closer to the table than this.
-MIN_WRIST_HEIGHT_ABOVE_TABLE = 0.04
+
+def configure_light_virtual_wrist_links(env_cfg) -> None:
+    """Apply the same mass-only profile on construction, reset and replay reset_to.
+
+    The recorder restarts physics before resetting the environment, which can
+    restore USD masses. A reset event reapplies the profile after that restart.
+    Private event configs leave the shared hand assets and short tasks intact.
+    """
+    if env_cfg.robot_type not in {
+        "floating_shadow_right", "floating_shadow_left", "floating_shadow_bimanual",
+    }:
+        return
+    prefixes = ("rh_", "lh_") if env_cfg.robot_type == "floating_shadow_bimanual" else ("",)
+    names = [prefix + axis + "_" + kind + "_link"
+             for prefix in prefixes for kind in ("translation", "rotation") for axis in "xyz"]
+    env_cfg.events = deepcopy(env_cfg.events)
+    for mode in ("startup", "reset"):
+        setattr(env_cfg.events, "light_virtual_wrist_links_" + mode, EventTerm(
+            func=set_virtual_wrist_link_mass, mode=mode,
+            params={"asset_cfg": SceneEntityCfg("robot", body_names=names, preserve_order=True),
+                    "mass": VIRTUAL_WRIST_LINK_MASS},
+        ))
+
+
+def tune_wrist_damping(env_cfg) -> None:
+    """Reduce wrist tracking delay without increasing force or changing fingers.
+
+    Full-observation physics checks compare 400, 200 and 150 damping. At 200,
+    a 3 cm command reaches 90% in 233 ms rather than 467 ms; physical wall
+    withdrawal overshoots about 1.8 mm versus 13.7 mm at 150. Rotation at 200
+    also halves the tested 15-degree step response without overshoot.
+
+    Work on a private robot config so short tasks keep their original drives.
+    Physics dt, observation cadence and retargeting are unchanged.
+    """
+    if env_cfg.robot_type not in {
+        "floating_shadow_right", "floating_shadow_left", "floating_shadow_bimanual",
+    }:
+        return
+    robot = deepcopy(env_cfg.scene.robot)
+    for actuator in robot.actuators.values():
+        actuator.damping = {
+            pattern: WRIST_DAMPING if "translation_joint" in pattern or "rotation_joint" in pattern else value
+            for pattern, value in actuator.damping.items()
+        }
+    env_cfg.scene.robot = robot
 
 # Marks showing the operator where a task's success check wants things.
 GOAL_MARK_COLOR = (0.1, 0.85, 0.3)
@@ -131,33 +172,19 @@ def show_by_state(env, key: str, prims: dict[int, tuple[str, ...]], state: torch
     memory[key] = state.clone()
 
 
-def tune_hand_for_carrying(env_cfg) -> None:
-    """Retune a single-hand floating robot's drives for this task only.
-
-    Call after the base config has set ``scene.robot``. Works on a deep copy, so the
-    shared robot config other tasks build from is untouched.
-    """
-    robot = deepcopy(env_cfg.scene.robot)
-    robot.spawn.rigid_props.max_depenetration_velocity = MAX_DEPENETRATION_VELOCITY
-    for actuator in robot.actuators.values():
-        armature = {}
-        for joints in actuator.damping:
-            if "translation" in joints:
-                actuator.stiffness[joints] = WRIST_TRANSLATION_STIFFNESS
-                actuator.damping[joints] = WRIST_TRANSLATION_DAMPING
-                actuator.effort_limit_sim[joints] = WRIST_TRANSLATION_EFFORT
-                armature[joints] = 0.0
-            elif "rotation" in joints:
-                actuator.damping[joints] = WRIST_ROTATION_DAMPING
-                armature[joints] = WRIST_ROTATION_ARMATURE
-            else:
-                actuator.damping[joints] = FINGER_DAMPING
-                armature[joints] = FINGER_ARMATURE
-        actuator.armature = armature
-    env_cfg.scene.robot = robot
-
-
 WRIST_CAMERA_BODY_NAMES = ("wrist_camera_body", "right_wrist_camera_body", "left_wrist_camera_body")
+
+
+def configure_cpu_camera_copies(env_cfg) -> None:
+    """Opt these scenes into an exact CPU copy without changing camera settings."""
+    from dexverse.cpu_tiled_camera import CpuTiledCamera
+    from isaaclab.sensors import TiledCamera, TiledCameraCfg
+
+    for name, camera in vars(env_cfg.scene).items():
+        if isinstance(camera, TiledCameraCfg) and camera.class_type is TiledCamera:
+            camera = deepcopy(camera)
+            camera.class_type = CpuTiledCamera
+            setattr(env_cfg.scene, name, camera)
 
 
 def tune_wrist_camera_bodies(env_cfg) -> None:
@@ -178,21 +205,18 @@ def tune_wrist_camera_bodies(env_cfg) -> None:
         setattr(env_cfg.scene, name, body)
 
 
-def tune_teleop_for_carrying(env_cfg, surface_z: float | None = None) -> None:
-    """Filter the tracked wrist and floor its height on a single-hand floating robot.
+def preserve_bimanual_wrist_origins(env_cfg) -> None:
+    """Keep both cooking wrist homes when switching relative to absolute control.
 
-    Call after the teleop devices are built and the wrist's start pose is final.
-    ``surface_z`` is the height of what the hand works on, by default the standard
-    table. Replay is unaffected: these act where tracking becomes commands, and
-    recordings store the commands.
+    Call after the teleop devices and wrist starting poses are final. This only
+    supplies coordinate origins; all motion settings retain their shared defaults.
     """
-    robot = env_cfg.scene.robot
-    wrist_home_z = robot.init_state.pos[2] + robot.init_state.joint_pos["z_translation_joint"]
-    surface_z = dexverse_base_env.DEFAULT_TABLE_TOP_HEIGHT if surface_z is None else surface_z
-    lowest_wrist_z = surface_z + MIN_WRIST_HEIGHT_ABOVE_TABLE
+    from ..robot_init import _compute_retargeter_origin_entry
+
+    origins = _compute_retargeter_origin_entry(env_cfg, "right")
     for device in env_cfg.teleop_devices.devices.values():
         for retargeter in device.retargeters:
             if isinstance(retargeter, SimpleRelativeRetargeterCfg):
-                retargeter.wrist_filter = WristFilterCfg()
-                retargeter.continuous_wrist_euler = True
-                retargeter.wrist_z_floor = lowest_wrist_z - wrist_home_z
+                # Relative cfgs do not declare this field. Attach it for the
+                # new two-hand setup so swapping to absolute keeps both homes.
+                retargeter.wrist_joint_origin = origins

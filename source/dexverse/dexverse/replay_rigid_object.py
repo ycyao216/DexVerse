@@ -3,11 +3,11 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Kinematic-safe rigid objects for replay and dataset-pinned evaluation.
+"""Kinematic-safe rigid objects for explicitly opted-in scenes.
 
 Isaac Lab 2.3's scene.reset_to writes velocities to every RigidObject, but PhysX
 rejects these writes for kinematic bodies, including zero velocities. Use this
-adapter only in replay scenes: poses, collision properties and dynamic-body
+adapter in replay or CPU collection scenes: poses, collision properties and dynamic-body
 velocity writes remain unchanged. No Isaac Lab classes are patched globally.
 """
 
@@ -68,7 +68,7 @@ def configure_replay_rigid_objects(scene_cfg):
     Custom asset classes, articulations and rigid-object collections are left
     untouched. Kinematic flags are read once at physics initialization, including
     flags inherited from USD files, and refreshed if the assets are initialized
-    again. Replay must not toggle these flags while the scene is running.
+    again. Callers must not toggle these flags while the scene is running.
     """
     for cfg in vars(scene_cfg).values():
         if isinstance(cfg, RigidObjectCfg) and cfg.class_type is RigidObject:

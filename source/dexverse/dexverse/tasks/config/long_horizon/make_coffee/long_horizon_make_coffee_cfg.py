@@ -79,9 +79,10 @@ from .... import dexverse_base_env_cfg as dexverse_base_env
 from .... import mdp
 from ...floating_teleop import DEFAULT_FLOATING_SHADOW_XR_CFG, setup_floating_teleop
 from ..handling import (
+    configure_cpu_camera_copies,
+    configure_light_virtual_wrist_links,
     grip_material_event,
-    tune_hand_for_carrying,
-    tune_teleop_for_carrying,
+    tune_wrist_damping,
     tune_wrist_camera_bodies,
 )
 from .checks import (
@@ -93,6 +94,7 @@ from .checks import (
     report_place_stage,
 )
 from .usd_prep import prepare_coffee_machine_usd
+from .feedback import reset_coffee_feedback, update_coffee_visuals
 
 # =====================================================================
 # USD asset paths (holder + milk collapsed to one rigid body; machine mass-prepped)
@@ -282,7 +284,9 @@ def make_coffee_success(env, task_key: str, threshold_rad: float = KNOB_ROTATE_D
     tips = tuple(FLOATING_SHADOW_RIGHT_FINGERTIP_BODY_NAMES)
     report_place_stage(env, poured & ~placed, COFFEE_PLACE_LOCAL, COFFEE_BODY, tips)
     report_lever_stage(env, placed & ~finished_now, COFFEE_KNOB_JOINT, threshold_rad, COFFEE_PLACE_LOCAL, COFFEE_BODY)
-    return stages_done & finished_now
+    success = stages_done & finished_now
+    update_coffee_visuals(env, flags, success)
+    return success
 
 
 def stage_progress_reward(env, task_key: str, persistent: bool = True) -> torch.Tensor:
@@ -776,6 +780,9 @@ class LongHorizonMakeCoffeeEnvCfg(dexverse_base_env.DexVerseBaseEnvCfg):
         super().__post_init__()
 
         # Five sub-stages -- give the episode room to complete them.
+        self.events.clear_stage_latches = EventTerm(
+            func=reset_coffee_feedback, mode="reset", params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY}
+        )
         self.episode_length_s = 45.0
         self.is_finite_horizon = True
         self.commands.object_pose.resampling_time_range = (
@@ -821,7 +828,8 @@ class LongHorizonMakeCoffeeEnvFloatingDexHandRightCfg(LongHorizonMakeCoffeeEnvCf
     def __post_init__(self):
         super().__post_init__()
 
-        tune_hand_for_carrying(self)
         tune_wrist_camera_bodies(self)
+        configure_cpu_camera_copies(self)
+        tune_wrist_damping(self)
+        configure_light_virtual_wrist_links(self)
         setup_floating_teleop(self)
-        tune_teleop_for_carrying(self)

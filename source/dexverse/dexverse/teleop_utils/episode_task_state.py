@@ -46,9 +46,9 @@ def _configured_env_buffer_names(env) -> set[str]:
     return names
 
 
-def capture_episode_task_state(env, env_index: int = 0) -> dict[str, dict[str, torch.Tensor]]:
+def capture_episode_task_state(env, env_index: int = 0, *, relative_to_env_origin: bool = False) -> dict[str, Any]:
     """Return replay-critical command and task-buffer state for one environment."""
-    state: dict[str, dict[str, torch.Tensor]] = {}
+    state: dict[str, Any] = {}
 
     command_manager = getattr(env, "command_manager", None)
     commands: dict[str, dict[str, torch.Tensor]] = {}
@@ -62,6 +62,10 @@ def capture_episode_task_state(env, env_index: int = 0) -> dict[str, dict[str, t
             for buffer_name in _COMMAND_BUFFER_NAMES:
                 row = _row_copy(getattr(term, buffer_name, None), env_index)
                 if row is not None:
+                    if relative_to_env_origin and (
+                        buffer_name == "pose_command_w" or getattr(term.cfg, "use_world_frame", False)
+                    ):
+                        row[:3] -= env.scene.env_origins[env_index]
                     buffers[buffer_name] = row
             # Preserve non-pose command terms too. Pose terms already expose the
             # writable source buffer above, so duplicating ``command`` is needless.
@@ -73,6 +77,8 @@ def capture_episode_task_state(env, env_index: int = 0) -> dict[str, dict[str, t
                 commands[str(name)] = buffers
     if commands:
         state["commands"] = commands
+        if relative_to_env_origin:
+            state["world_pose_frame"] = "env"
 
     env_buffers: dict[str, torch.Tensor] = {}
     for name in sorted(_configured_env_buffer_names(env)):
@@ -81,6 +87,10 @@ def capture_episode_task_state(env, env_index: int = 0) -> dict[str, dict[str, t
             env_buffers[name] = row
     if env_buffers:
         state["env_buffers"] = env_buffers
+
+    capture = getattr(getattr(env, "cfg", None), "capture_task_state", None)
+    if callable(capture):
+        state["task_runtime"] = capture(env, env_index)
 
     return state
 
@@ -139,6 +149,12 @@ def restore_episode_task_state(
             if not isinstance(target, torch.Tensor) or target.shape[0] <= env_index:
                 skipped.append(f"command:{name}.{buffer_name}")
                 continue
+            if state.get("world_pose_frame") == "env" and (
+                buffer_name == "pose_command_w"
+                or (buffer_name == "pose_command_b" and getattr(term.cfg, "use_world_frame", False))
+            ):
+                value = torch.as_tensor(value, device=target.device, dtype=target.dtype).clone()
+                value[:3] += env.scene.env_origins[env_index]
             _restore_tensor_row(target, value, env_index)
             if buffer_name == "pose_command_b" and getattr(getattr(term, "cfg", None), "use_world_frame", False):
                 pose_w = getattr(term, "pose_command_w", None)
@@ -152,5 +168,12 @@ def restore_episode_task_state(
             target = torch.zeros((env.num_envs, *source.shape), device=env.device, dtype=source.dtype)
             setattr(env, name, target)
         _restore_tensor_row(target, value, env_index)
+
+    if "task_runtime" in state:
+        restore = getattr(getattr(env, "cfg", None), "restore_task_state", None)
+        if callable(restore):
+            restore(env, state["task_runtime"], env_index)
+        else:
+            skipped.append("task_runtime")
 
     return skipped

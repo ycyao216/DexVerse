@@ -35,10 +35,11 @@ Asset notes
   (``stiffness=0``; static ``friction`` holds it where the hand leaves it). Scaled
   up by ``OVEN_SCALE``.
 - Salmon (``synthesis/salmon/salmon.usd``), tray
-  (``tray001/...``) and the two spice jars (``SpiceJarSalt`` / ``SpiceJarPepper``)
-  are not physics-ready as shipped; :func:`prepare_rigid_mesh_usd` bakes
+  (``tray001/...``) are not physics-ready as shipped; :func:`prepare_rigid_mesh_usd` bakes
   single-rigid-body, collidable copies. The salmon is the canonical
   ``scene.object``; the tray is now a *dynamic* (movable) carrier.
+- Salt and pepper are locally authored shaker bottles, each with one convex
+  collider and one rigid body; their cached USDs leave the shared assets intact.
 
 Placement / non-overlap
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,6 +84,8 @@ from ...robot_init import (
     set_robot_wrist_init_world_pos,
 )
 from .usd_prep import prepare_rigid_mesh_usd
+from .seasoning_bottles import seasoning_bottle_usd
+from .feedback import capture_baking_state, restore_baking_state, reset_feedback, salmon_success
 
 # =====================================================================
 # USD asset paths (salmon / tray / jars prepped into rigid, collidable copies)
@@ -95,16 +98,10 @@ TRAY_USD_PATH = prepare_rigid_mesh_usd(
     SYNTHESIS_DIR / "tray001" / "model_redtray__rb_cleaned.usd",
     approximation="convexDecomposition",
 )
-# Spice jars: have colliders but no rigid body; prep adds a single rigid body and
-# a convexHull collider (graspable). Upright with +Z up, base at local z=0.
-SALT_USD_PATH = prepare_rigid_mesh_usd(
-    SYNTHESIS_DIR / "SpiceJarSalt" / "model_SpiceJarSalt_69323.usd",
-    approximation="convexHull",
-)
-PEPPER_USD_PATH = prepare_rigid_mesh_usd(
-    SYNTHESIS_DIR / "SpiceJarPepper" / "model_SpiceJarPepper_69323.usd",
-    approximation="convexHull",
-)
+# Locally authored shakers with one rigid body and one convex grasp collider.
+# Upright with +Z up, base at local z=0.
+SALT_USD_PATH = seasoning_bottle_usd("salt")
+PEPPER_USD_PATH = seasoning_bottle_usd("pepper")
 
 
 # =====================================================================
@@ -644,8 +641,8 @@ class OvenBakeSalmonTerminationsCfg(dexverse_base_env.TerminationsCfg):
         },
     )
     success = DoneTerm(
-        func=mdp.stage_success,
-        params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY, "persistent": True},
+        func=salmon_success,
+        params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY},
     )
 
 
@@ -769,6 +766,11 @@ class LongHorizonOvenBakeSalmonEnvCfg(dexverse_base_env.DexVerseBaseEnvCfg):
         # Multi-stage bimanual task -- give the episode room to complete it.
         self.episode_length_s = 50.0
         self.is_finite_horizon = True
+        self.events.clear_baking_progress = EventTerm(
+            func=reset_feedback, mode="reset", params={"task_key": LONG_HORIZON_STAGE_GRAPH_KEY},
+        )
+        self.capture_task_state = capture_baking_state
+        self.restore_task_state = restore_baking_state
 
         # Pull both palms ~5 cm back along world -x so the hands don't start
         # right on top of the tray. World-frame so the same target applies
@@ -852,3 +854,8 @@ class LongHorizonOvenBakeSalmonEnvFloatingShadowBimanualCfg(LongHorizonOvenBakeS
         # ABSOLUTE_WRIST_ORIGIN); without this, teleop pulls the wrist back to
         # the old origin and the init shift appears to have no effect.
         align_retargeter_wrist_origin_to_init(self)
+        from ..handling import preserve_bimanual_wrist_origins, tune_wrist_camera_bodies
+        from dexverse.replay_rigid_object import configure_replay_rigid_objects
+        preserve_bimanual_wrist_origins(self)
+        tune_wrist_camera_bodies(self)
+        configure_replay_rigid_objects(self.scene)

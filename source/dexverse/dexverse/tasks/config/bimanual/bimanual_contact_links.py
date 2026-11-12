@@ -157,6 +157,35 @@ def contact_sensor_names(body_names: tuple[str, ...] | list[str], suffix: str = 
     return [f"{name}{suffix}" for name in body_names]
 
 
+def resolve_bimanual_collision_links(robot_cfg: Any) -> BimanualContactLinks:
+    """Find actual contact-bearing hand bodies, including instanced geometry.
+
+    Fingertip pose markers can be empty rigid bodies (notably on Shadow).
+    Include every colliding finger segment and palm, rather than using those
+    markers to decide whether a hand holds the object.
+    """
+    from pxr import Usd, UsdPhysics
+
+    stage = Usd.Stage.Open(str(robot_cfg.spawn.usd_path))
+    root = stage.GetDefaultPrim()
+    bodies = set()
+    for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
+        if not prim.HasAPI(UsdPhysics.CollisionAPI):
+            continue
+        if not UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get():
+            continue
+        body = prim
+        while body and not body.HasAPI(UsdPhysics.RigidBodyAPI):
+            body = body.GetParent()
+        if body:
+            bodies.add(str(body.GetPath().MakeRelativePath(root.GetPath())))
+    left = tuple(sorted(path for path in bodies if path.rsplit("/", 1)[-1].startswith(("lh_", "left_"))))
+    right = tuple(sorted(path for path in bodies if path.rsplit("/", 1)[-1].startswith(("rh_", "right_"))))
+    if not left or not right:
+        raise ValueError(f"Could not resolve colliding bodies for both hands in {robot_cfg.spawn.usd_path}")
+    return BimanualContactLinks(all=(*right, *left), left=left, right=right)
+
+
 def _without_configured_palms(contact_links: BimanualContactLinks, robot_config: Any) -> BimanualContactLinks:
     palm_names = {
         getattr(robot_config, "right_palm_body_name", None),

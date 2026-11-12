@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "source/dexverse"))
 from dexverse.benchmark import task_identity  # noqa: E402
 from dexverse.teleop_utils.debug_visualization import configure_v1_debug_visualization  # noqa: E402
+from dexverse.teleop_utils.seeding import resolve_seed  # noqa: E402
+from dexverse.teleop_utils import seeding  # noqa: E402
 
 
 def tree(script):
@@ -53,8 +55,9 @@ def test_seed_cli_accepts_fixed_and_omitted_seed(script, default):
     assert parser.parse_args(["--seed", "4200"]).seed == 4200
 
 
-@pytest.mark.parametrize("seed,expected", [(1000, 1000), (-1, -1), (None, 42)])
-def test_collection_seed_survives_robot_config_rebuild(seed, expected):
+@pytest.mark.parametrize("seed,expected", [(1000, 1000), (-1, 73129), (None, 42)])
+def test_collection_seed_survives_robot_config_rebuild(seed, expected, monkeypatch):
+    monkeypatch.setattr(seeding.secrets, "randbelow", lambda bound: 73129)
     class Config:
         def __init__(self, **kwargs):
             self.seed = 42
@@ -66,16 +69,45 @@ def test_collection_seed_survives_robot_config_rebuild(seed, expected):
 
     args = SimpleNamespace(task="Dexverse-OpenDoor-v1", device="cuda:0", json_path=None,
                            robot_type="floating_shadow_right", usd_path=None,
-                           enable_debug_vis=None, seed=seed, xr=False, cues_in_rgb=False)
+                           enable_debug_vis=None, seed=seed, xr=False, cues_in_rgb=False,
+                           collection_object_id=None)
     node = next(node for node in tree("record_demos.py").body
                 if isinstance(node, ast.FunctionDef) and node.name == "create_environment_config")
     namespace = {"args_cli": args, "parse_env_cfg": lambda *a, **k: Config(),
+                 "resolve_seed": resolve_seed,
                  "configure_v1_debug_visualization": configure_v1_debug_visualization}
     load_node(node, namespace)
     cfg, success = namespace[node.name]()
     assert cfg.seed == expected
     assert cfg.robot_type == "floating_shadow_right" and cfg.scene.num_envs == 1
     assert success is not None and cfg.terminations.success is None
+
+
+def test_random_seed_is_nonnegative_and_each_request_draws_again(monkeypatch):
+    draws = iter([0, 2**31 - 1])
+    monkeypatch.setattr(seeding.secrets, "randbelow", lambda bound: next(draws))
+    assert resolve_seed(0) == 0
+    assert resolve_seed(42) == 42
+    assert resolve_seed(-1) == 0
+    assert resolve_seed(-1) == 2**31 - 1
+    with pytest.raises(ValueError, match="nonnegative"):
+        resolve_seed(-2)
+
+
+def test_practice_resolves_cli_and_config_sentinels_before_make(monkeypatch):
+    monkeypatch.setattr(seeding.secrets, "randbelow", lambda bound: 73129)
+    main = next(n for n in tree("teleop_agent.py").body if isinstance(n, ast.FunctionDef) and n.name == "main")
+    seed_if = next(n for n in main.body if isinstance(n, ast.If) and ast.unparse(n.test) == "args_cli.seed is not None")
+    resolve = next(n for n in main.body if isinstance(n, ast.Assign)
+                   and ast.unparse(n) == "env_cfg.seed = resolve_seed(env_cfg.seed)")
+    make = next(n for n in ast.walk(main) if isinstance(n, ast.Call) and ast.unparse(n.func) == "gym.make")
+    assert seed_if.lineno < resolve.lineno < make.lineno
+    for requested, initial, expected in [(-1, 42, 73129), (None, -1, 73129), (0, 42, 0), (None, 42, 42)]:
+        cfg = SimpleNamespace(seed=initial)
+        namespace = {"args_cli": SimpleNamespace(seed=requested), "env_cfg": cfg, "resolve_seed": resolve_seed}
+        load_node(seed_if, namespace)
+        load_node(resolve, namespace)
+        assert cfg.seed == expected
 
 
 @pytest.mark.parametrize("script", ["zero_agent.py", "teleop_agent.py"])
